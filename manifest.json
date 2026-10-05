@@ -1,0 +1,21 @@
+{
+  "schema": "ccuv.dataset/v1",
+  "id": "weread",
+  "version": "0.1.0",
+  "protocol": "ccuv.custom/v1",
+  "entrypoint": "bin/ccuv-dataset-weread",
+  "platform": {"os": "darwin", "arch": "arm64"},
+  "metric": {
+    "id": "reading-time",
+    "title": {"en": "Reading time", "zh-CN": "阅读时长"},
+    "unit": {"id": "minute", "label": {"en": "minutes", "zh-CN": "分钟"}, "placement": "suffix", "decimal_places": 2}
+  },
+  "charts": ["timeline", "calendar", "stack", "ranking"],
+  "environment": [{
+    "name": "WEREAD_API_KEY",
+    "required": true,
+    "sensitive": true,
+    "label": {"en": "WeRead API key", "zh-CN": "微信读书 API 密钥"},
+    "how_to_get": {"en": "Configure a credential in your approved gateway implementation.", "zh-CN": "请在获准的数据网关实现中配置凭据。"}
+  }]
+}

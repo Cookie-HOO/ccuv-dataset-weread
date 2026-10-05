@@ -1,0 +1,41 @@
+name: Release Gate
+
+# The adapter deliberately has no verified production gateway yet. Tags validate the
+# distribution artifact but cannot publish a GitHub release until that gate is removed.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-tagged-artifact:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Validate tagged source
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(jq -r .version manifest.json)"
+          test -z "$(gofmt -l $(find cmd internal -name '*.go' -type f))"
+          go test ./...
+          go vet ./...
+      - name: Build and validate reproducible native archive
+        run: |
+          ./scripts/package.sh dist/first.tar.gz
+          ./scripts/package.sh dist/second.tar.gz
+          cmp dist/first.tar.gz dist/second.tar.gz
+          go run ./cmd/archiveverify dist/first.tar.gz
+          sha256sum dist/first.tar.gz > dist/checksums.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-but-unpublished-weread-archive
+          path: |
+            dist/first.tar.gz
+            dist/checksums.txt
+          if-no-files-found: error

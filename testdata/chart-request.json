@@ -1,0 +1,1 @@
+{"protocol":"ccuv.custom/v1","request_id":"fixture-chart","request_kind":"chart","dataset_id":"weread","timezone":"Asia/Shanghai","range":{"start_date":"2026-09-17","end_date":"2026-09-18"},"query":{"filters":{},"group_by":null,"granularity":"day"}}
