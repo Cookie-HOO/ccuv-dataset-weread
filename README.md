@@ -10,6 +10,8 @@ ccuv-dataset-weread ccuv
 
 This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. It is still **unreleased**: a fresh Dashboard render against the authorized source must succeed before any official catalog entry is published.
 
+`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1mo"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative.
+
 The intended first artifact targets `darwin/arm64` and contains exactly:
 
 ```text

@@ -43,6 +43,9 @@ func handle(input []byte, gatewayFactory func() (weread.Gateway, error)) (any, e
 	if err := request.Validate(); err != nil {
 		return protocol.ErrorFor(request, "invalid_request", "The request is invalid.", "请求无效。"), nil
 	}
+	if request.RequestKind == "probe" {
+		return protocol.NewProbeResponse(request), nil
+	}
 	if response := weread.SelectionError(request); response != nil {
 		return *response, nil
 	}

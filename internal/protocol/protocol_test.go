@@ -98,6 +98,29 @@ func TestValidateRequiresValidTimezone(t *testing.T) {
 	}
 }
 
+func TestProbeRequestValidatesWithoutTimezoneOrQuery(t *testing.T) {
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID}
+	if err := request.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestProbeRequestRejectsQueryFields(t *testing.T) {
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID, Query: Query{Filters: map[string][]string{}}}
+	if err := request.Validate(); err == nil {
+		t.Fatal("probe query was accepted")
+	}
+}
+
+func TestProbeResponseDeclaresRankingDefaults(t *testing.T) {
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID}
+	response := NewProbeResponse(request)
+	defaults := response.Descriptor.Defaults["ranking"]
+	if defaults.Period == nil || *defaults.Period != "1mo" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
+		t.Fatalf("ranking defaults = %#v", defaults)
+	}
+}
+
 func TestChartResponseUsesMinuteUnit(t *testing.T) {
 	request := Request{Protocol: Version, RequestID: "request-one", RequestKind: "chart", DatasetID: DatasetID, Timezone: timezone("Asia/Shanghai"), Range: &Range{StartDate: "2026-09-01", EndDate: "2026-09-01"}, Query: Query{Filters: map[string][]string{}, Granularity: "day"}}
 	response := NewChartResponse(request, nil)

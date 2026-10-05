@@ -95,7 +95,7 @@ func InvalidRequestFor(input []byte) (ErrorResponse, bool) {
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return ErrorResponse{}, false
 	}
-	if envelope.Protocol != Version || !idPattern.MatchString(envelope.RequestID) || envelope.DatasetID != DatasetID || (envelope.RequestKind != "chart" && envelope.RequestKind != "summary") {
+	if envelope.Protocol != Version || !idPattern.MatchString(envelope.RequestID) || envelope.DatasetID != DatasetID || (envelope.RequestKind != "chart" && envelope.RequestKind != "summary" && envelope.RequestKind != "probe") {
 		return ErrorResponse{}, false
 	}
 	return ErrorFor(
@@ -120,8 +120,14 @@ func (r Request) Validate() error {
 	if r.DatasetID != DatasetID {
 		return fmt.Errorf("unsupported dataset")
 	}
-	if r.RequestKind != "chart" && r.RequestKind != "summary" {
+	if r.RequestKind != "chart" && r.RequestKind != "summary" && r.RequestKind != "probe" {
 		return fmt.Errorf("invalid request_kind")
+	}
+	if r.RequestKind == "probe" {
+		if r.Timezone != nil || r.Range != nil || r.Summary != nil || r.Query.Filters != nil || r.Query.GroupBy != nil || r.Query.Granularity != "" {
+			return fmt.Errorf("probe request must omit query, timezone, range, and summary")
+		}
+		return nil
 	}
 	if r.Timezone == nil || *r.Timezone == "" {
 		return fmt.Errorf("timezone is required")
@@ -289,6 +295,68 @@ type Series struct {
 type Point struct {
 	Date  string `json:"date"`
 	Value string `json:"value"`
+}
+
+// ProbeResponse describes stable Dataset capabilities without accessing user data.
+type ProbeResponse struct {
+	Protocol    string          `json:"protocol"`
+	RequestID   string          `json:"request_id"`
+	RequestKind string          `json:"request_kind"`
+	DatasetID   string          `json:"dataset_id"`
+	Status      string          `json:"status"`
+	Descriptor  ProbeDescriptor `json:"descriptor"`
+}
+
+type ProbeDescriptor struct {
+	Revision       string                   `json:"revision"`
+	Version        string                   `json:"version"`
+	SourceTimezone string                   `json:"source_timezone"`
+	Dataset        Dataset                  `json:"dataset"`
+	Capabilities   Capabilities             `json:"capabilities"`
+	Defaults       map[string]ChartDefaults `json:"defaults"`
+	Environment    []EnvironmentDeclaration `json:"environment"`
+}
+
+type ChartDefaults struct {
+	Period  *string `json:"period"`
+	GroupBy *string `json:"group_by"`
+	Top     *int    `json:"top"`
+}
+
+type EnvironmentDeclaration struct {
+	Name      string        `json:"name"`
+	Required  bool          `json:"required"`
+	Sensitive bool          `json:"sensitive"`
+	Label     LocalizedText `json:"label"`
+	HowToGet  LocalizedText `json:"how_to_get"`
+	HelpURL   *string       `json:"help_url,omitempty"`
+}
+
+func NewProbeResponse(request Request) ProbeResponse {
+	period14d, period1mo := "14d", "1mo"
+	book, top10 := "book", 10
+	charts := map[string]ChartCapability{}
+	for _, kind := range []string{"timeline", "calendar", "stack"} {
+		charts[kind] = ChartCapability{[]string{"day"}, []string{}, []string{}}
+	}
+	charts["ranking"] = ChartCapability{[]string{"day"}, rankingGroupBy(), []string{}}
+	return ProbeResponse{
+		Protocol: Version, RequestID: request.RequestID, RequestKind: "probe", DatasetID: DatasetID, Status: "ok",
+		Descriptor: ProbeDescriptor{
+			Revision: "weread-1", Version: "0.1.0", SourceTimezone: "Asia/Shanghai",
+			Dataset:      Dataset{LocalizedText{"WeRead", "微信读书"}, LocalizedText{"Daily reading time", "每日阅读时长"}, Unit{"minute", LocalizedText{"minutes", "分钟"}, "suffix", 2}},
+			Capabilities: Capabilities{groupDimensions(), []any{}, charts},
+			Defaults: map[string]ChartDefaults{
+				"timeline": {Period: &period14d}, "calendar": {Period: &period14d}, "stack": {Period: &period14d},
+				"ranking": {Period: &period1mo, GroupBy: &book, Top: &top10},
+			},
+			Environment: []EnvironmentDeclaration{{
+				Name: "WEREAD_API_KEY", Required: true, Sensitive: true,
+				Label:    LocalizedText{"WeRead API key", "微信读书 API 密钥"},
+				HowToGet: LocalizedText{"Set the key in your environment.", "请通过环境变量设置密钥。"},
+			}},
+		},
+	}
 }
 
 func NewChartResponse(request Request, points []Point) ChartResponse {

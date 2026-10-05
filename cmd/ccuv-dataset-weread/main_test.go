@@ -7,6 +7,39 @@ import (
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
 )
 
+func TestHandleProbeDoesNotCreateGatewayAndReturnsRankingDefaults(t *testing.T) {
+	input := []byte(`{
+		"protocol":"ccuv.custom/v1",
+		"request_id":"probe-test",
+		"request_kind":"probe",
+		"dataset_id":"weread"
+	}`)
+	called := false
+
+	response, err := handle(input, func() (weread.Gateway, error) {
+		called = true
+		return nil, nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("gateway factory was called")
+	}
+	result, ok := response.(protocol.ProbeResponse)
+	if !ok {
+		t.Fatalf("response = %#v", response)
+	}
+	defaults := result.Descriptor.Defaults["ranking"]
+	if defaults.Period == nil || *defaults.Period != "1mo" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
+		t.Fatalf("ranking defaults = %#v", defaults)
+	}
+	if len(result.Descriptor.Environment) != 1 || result.Descriptor.Environment[0].Name != "WEREAD_API_KEY" || !result.Descriptor.Environment[0].Required || !result.Descriptor.Environment[0].Sensitive {
+		t.Fatalf("environment = %#v", result.Descriptor.Environment)
+	}
+}
+
 func TestHandleRejectsAuthorBeforeCreatingGateway(t *testing.T) {
 	input := []byte(`{
 		"protocol":"ccuv.custom/v1",
