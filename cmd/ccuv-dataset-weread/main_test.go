@@ -73,12 +73,36 @@ func TestHandleV2ProbeDefaultsToReadingTimeWithoutMonitor(t *testing.T) {
 	if err := json.Unmarshal(encoded, &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Protocol != "ccuv.custom/v2" || body.Descriptor.DefaultMetricID != "reading_time" || len(body.Descriptor.Metrics) != 1 {
+	if body.Protocol != "ccuv.custom/v2" || body.Descriptor.DefaultMetricID != "reading_time" || len(body.Descriptor.Metrics) != 2 {
 		t.Fatalf("unexpected V2 probe: %s", encoded)
 	}
 	charts := body.Descriptor.Metrics[0].Capabilities.Charts
-	if body.Descriptor.Metrics[0].ID != "reading_time" || charts["monitor"] != nil {
+	if body.Descriptor.Metrics[0].ID != "reading_time" || body.Descriptor.Metrics[1].ID != "total_notes" || charts["monitor"] != nil || body.Descriptor.Metrics[1].Capabilities.Charts["monitor"] != nil {
 		t.Fatalf("unexpected metric capability: %s", encoded)
+	}
+}
+
+func TestHandleV2TotalNotesSupportsOnlyAllBookRanking(t *testing.T) {
+	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-v2","request_kind":"chart","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","range":{"start_date":"1971-01-01","end_date":"2026-10-08","period":"all"},"query":{"filters":{},"group_by":"book","granularity":"day"}}`)
+	response, err := handle(input, func() (weread.Gateway, error) {
+		return weread.FakeGateway{NotebookRecords: []weread.RankedRecord{{ID: "book:42", Label: "Book", Seconds: "9"}}}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(response)
+	var body struct {
+		Status   string `json:"status"`
+		MetricID string `json:"metric_id"`
+		Data     struct {
+			Series []any `json:"series"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(encoded, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Status != "ok" || body.MetricID != "total_notes" || len(body.Data.Series) != 1 {
+		t.Fatalf("unexpected notes response: %s", encoded)
 	}
 }
 

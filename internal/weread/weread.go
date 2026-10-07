@@ -18,6 +18,11 @@ type Gateway interface {
 	PeriodRanking(context.Context, protocol.Range, string) ([]RankedRecord, error)
 }
 
+// NotebookRankingGateway provides the current all-time notebook count per book.
+type NotebookRankingGateway interface {
+	NotebookRanking(context.Context) ([]RankedRecord, error)
+}
+
 // RankedRecord is one official natural-period reading summary.
 type RankedRecord struct {
 	ID      string
@@ -33,9 +38,17 @@ type DailyRecord struct {
 
 // FakeGateway is a deterministic dependency-injected gateway for tests and fixtures.
 type FakeGateway struct {
-	Records        []DailyRecord
-	RankingRecords []RankedRecord
-	Err            error
+	Records         []DailyRecord
+	RankingRecords  []RankedRecord
+	NotebookRecords []RankedRecord
+	Err             error
+}
+
+func (g FakeGateway) NotebookRanking(_ context.Context) ([]RankedRecord, error) {
+	if g.Err != nil {
+		return nil, g.Err
+	}
+	return append([]RankedRecord(nil), g.NotebookRecords...), nil
 }
 
 func (g FakeGateway) DailyRecords(_ context.Context, _ []protocol.Range) ([]DailyRecord, error) {

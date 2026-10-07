@@ -40,6 +40,23 @@
           "stack": {"period": "14d", "group_by": null, "top": null},
           "ranking": {"period": "1y", "group_by": "book", "top": 10}
         }
+      }, {
+        "id": "total_notes",
+        "title": {"en": "Total notes", "zh-CN": "总笔记数"},
+        "description": {"en": "Current all-time notes: highlights, thoughts, and bookmarks.", "zh-CN": "当前全量笔记数：划线、想法和书签。"},
+        "unit": {"id": "note", "label": {"en": "notes", "zh-CN": "笔记"}, "placement": "suffix", "decimal_places": 0},
+        "aggregation": "sum",
+        "summary": "total",
+        "capabilities": {
+          "group_by": [{"id": "book", "label": {"en": "Book", "zh-CN": "书籍"}}],
+          "filters": [],
+          "charts": {
+            "ranking": {"granularities": ["day"], "group_by": ["book"], "filters": [], "periods": ["all"]}
+          }
+        },
+        "defaults": {
+          "ranking": {"period": "all", "group_by": "book", "top": 10}
+        }
       }],
       "environment": [{
         "name": "WEREAD_API_KEY",

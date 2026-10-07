@@ -115,6 +115,68 @@ func (g HTTPGateway) PeriodRanking(ctx context.Context, interval protocol.Range,
 	return records, nil
 }
 
+func (g HTTPGateway) NotebookRanking(ctx context.Context) ([]RankedRecord, error) {
+	if g.client == nil || g.endpoint != gatewayURL || strings.TrimSpace(g.apiKey) == "" {
+		return nil, newSourceFailure(sourceFailureRequest)
+	}
+	var records []RankedRecord
+	var lastSort *int64
+	for {
+		body := map[string]any{"api_name": "/user/notebooks", "count": 100, "skill_version": skillVersion}
+		if lastSort != nil {
+			body["lastSort"] = *lastSort
+		}
+		payload, err := g.fetchGateway(ctx, body)
+		if err != nil {
+			return nil, err
+		}
+		var response struct {
+			ErrCode     *int            `json:"errcode"`
+			UpgradeInfo json.RawMessage `json:"upgrade_info"`
+			HasMore     int             `json:"hasMore"`
+			Books       []struct {
+				BookID json.RawMessage `json:"bookId"`
+				Book   struct {
+					Title string `json:"title"`
+				} `json:"book"`
+				ReviewCount   uint64 `json:"reviewCount"`
+				NoteCount     uint64 `json:"noteCount"`
+				BookmarkCount uint64 `json:"bookmarkCount"`
+				Sort          int64  `json:"sort"`
+			} `json:"books"`
+		}
+		if err := json.Unmarshal(payload, &response); err != nil || response.ErrCode == nil || *response.ErrCode != 0 || (len(response.UpgradeInfo) > 0 && string(response.UpgradeInfo) != "null") {
+			return nil, newSourceFailure(sourceFailureResponse)
+		}
+		for _, book := range response.Books {
+			var id string
+			if err := json.Unmarshal(book.BookID, &id); err != nil {
+				var numeric json.Number
+				if err := json.Unmarshal(book.BookID, &numeric); err != nil {
+					return nil, newSourceFailure(sourceFailureResponse)
+				}
+				id = numeric.String()
+			}
+			if id == "" || book.Book.Title == "" || ^uint64(0)-book.ReviewCount < book.NoteCount || ^uint64(0)-book.ReviewCount-book.NoteCount < book.BookmarkCount {
+				return nil, newSourceFailure(sourceFailureResponse)
+			}
+			records = append(records, RankedRecord{ID: "book:" + id, Label: book.Book.Title, Seconds: strconv.FormatUint(book.ReviewCount+book.NoteCount+book.BookmarkCount, 10)})
+		}
+		if response.HasMore == 0 {
+			break
+		}
+		if len(response.Books) == 0 {
+			return nil, newSourceFailure(sourceFailureResponse)
+		}
+		next := response.Books[len(response.Books)-1].Sort
+		if lastSort != nil && next == *lastSort {
+			return nil, newSourceFailure(sourceFailureResponse)
+		}
+		lastSort = &next
+	}
+	return records, nil
+}
+
 func (g HTTPGateway) DailyRecords(ctx context.Context, intervals []protocol.Range) ([]DailyRecord, error) {
 	if g.client == nil || g.endpoint != gatewayURL || strings.TrimSpace(g.apiKey) == "" {
 		return nil, newSourceFailure(sourceFailureRequest)
@@ -221,9 +283,14 @@ func (g HTTPGateway) monthlyReadTimes(ctx context.Context, target month) (dailyR
 }
 
 func (g HTTPGateway) fetchDetail(ctx context.Context, mode string, baseTime int64) ([]byte, error) {
-	body, err := json.Marshal(map[string]any{
+	return g.fetchGateway(ctx, map[string]any{
 		"api_name": "/readdata/detail", "mode": mode, "baseTime": baseTime, "skill_version": skillVersion,
 	})
+
+}
+
+func (g HTTPGateway) fetchGateway(ctx context.Context, values map[string]any) ([]byte, error) {
+	body, err := json.Marshal(values)
 	if err != nil {
 		return nil, newSourceFailure(sourceFailureRequest)
 	}

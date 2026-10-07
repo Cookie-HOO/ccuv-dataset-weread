@@ -77,6 +77,9 @@ func handleV2(input []byte, envelope struct {
 			"descriptor": v2Descriptor(),
 		}, nil
 	}
+	if envelope.RequestKind == "chart" && envelope.MetricID == "total_notes" {
+		return handleV2TotalNotes(input, envelope, gatewayFactory)
+	}
 	if envelope.RequestKind != "chart" || envelope.MetricID != "reading_time" {
 		return map[string]any{
 			"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": envelope.RequestKind, "dataset_id": protocol.DatasetID, "status": "error",
@@ -110,12 +113,90 @@ func handleV2(input []byte, envelope struct {
 	return response, nil
 }
 
+func handleV2TotalNotes(input []byte, envelope struct {
+	Protocol    string `json:"protocol"`
+	RequestID   string `json:"request_id"`
+	RequestKind string `json:"request_kind"`
+	MetricID    string `json:"metric_id"`
+}, gatewayFactory func() (weread.Gateway, error)) (any, error) {
+	var request struct {
+		Range struct {
+			Period  *string `json:"period"`
+			EndDate string  `json:"end_date"`
+		} `json:"range"`
+		Query struct {
+			GroupBy *string `json:"group_by"`
+		} `json:"query"`
+	}
+	if err := json.Unmarshal(input, &request); err != nil {
+		return nil, err
+	}
+	if request.Range.Period == nil || *request.Range.Period != "all" {
+		value := "null"
+		if request.Range.Period != nil {
+			value = *request.Range.Period
+		}
+		return unsupportedV2(envelope, "range.period", value, "WeRead total notes supports only all-time ranking.", "微信读书总笔记数仅支持全量排行。"), nil
+	}
+	if request.Query.GroupBy == nil || *request.Query.GroupBy != "book" {
+		value := "total"
+		if request.Query.GroupBy != nil {
+			value = *request.Query.GroupBy
+		}
+		return unsupportedV2(envelope, "query.group_by", value, "WeRead total notes supports only Book grouping.", "微信读书总笔记数仅支持按书籍分组。"), nil
+	}
+	gateway, err := gatewayFactory()
+	if err != nil {
+		return sourceUnavailableV2(envelope), nil
+	}
+	notebooks, ok := gateway.(weread.NotebookRankingGateway)
+	if !ok {
+		return sourceUnavailableV2(envelope), nil
+	}
+	records, err := notebooks.NotebookRanking(context.Background())
+	if err != nil {
+		return sourceUnavailableV2(envelope), nil
+	}
+	series := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		series = append(series, map[string]any{"id": record.ID, "label": map[string]string{"en": record.Label, "zh-CN": record.Label}, "points": []any{map[string]any{"date": request.Range.EndDate, "value": record.Seconds}}})
+	}
+	return map[string]any{
+		"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": "chart", "dataset_id": protocol.DatasetID, "metric_id": "total_notes", "status": "ok",
+		"dataset":      map[string]any{"title": map[string]string{"en": "WeRead", "zh-CN": "微信读书"}, "description": map[string]string{"en": "All-time notes", "zh-CN": "全量笔记"}, "unit": map[string]any{"id": "note", "label": map[string]string{"en": "notes", "zh-CN": "笔记"}, "placement": "suffix", "decimal_places": 0}},
+		"capabilities": map[string]any{"group_by": []any{map[string]any{"id": "book", "label": map[string]string{"en": "Book", "zh-CN": "书籍"}}}, "filters": []any{}, "charts": map[string]any{"ranking": map[string]any{"granularities": []string{"day"}, "group_by": []string{"book"}, "filters": []any{}}}},
+		"data":         map[string]any{"series": series},
+	}, nil
+}
+
+func unsupportedV2(envelope struct {
+	Protocol    string `json:"protocol"`
+	RequestID   string `json:"request_id"`
+	RequestKind string `json:"request_kind"`
+	MetricID    string `json:"metric_id"`
+}, field, value, en, zh string) map[string]any {
+	return map[string]any{"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": envelope.RequestKind, "dataset_id": protocol.DatasetID, "metric_id": envelope.MetricID, "status": "error", "error": map[string]any{"code": "unsupported_query", "message": map[string]string{"en": en, "zh-CN": zh}, "unsupported": map[string]string{"field": field, "value": value}}}
+}
+
+func sourceUnavailableV2(envelope struct {
+	Protocol    string `json:"protocol"`
+	RequestID   string `json:"request_id"`
+	RequestKind string `json:"request_kind"`
+	MetricID    string `json:"metric_id"`
+}) map[string]any {
+	return map[string]any{"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": envelope.RequestKind, "dataset_id": protocol.DatasetID, "metric_id": envelope.MetricID, "status": "error", "error": map[string]any{"code": "source_unavailable", "message": map[string]string{"en": "WeRead data is unavailable.", "zh-CN": "微信读书数据暂不可用。"}}}
+}
+
 func v2Descriptor() map[string]any {
 	period14d, period1y := "14d", "1y"
 	book, top10 := "book", 10
 	text := func(en, zh string) map[string]string { return map[string]string{"en": en, "zh-CN": zh} }
 	chart := func(granularities, groupBy, periods []string) map[string]any {
-		return map[string]any{"granularities": granularities, "group_by": groupBy, "filters": []any{}, "periods": periods}
+		result := map[string]any{"granularities": granularities, "group_by": groupBy, "filters": []any{}}
+		if len(periods) > 0 {
+			result["periods"] = periods
+		}
+		return result
 	}
 	return map[string]any{
 		"revision": "weread-2", "version": "0.0.1", "source_timezone": "Asia/Shanghai", "default_metric_id": "reading_time",
@@ -136,6 +217,11 @@ func v2Descriptor() map[string]any {
 			"defaults": map[string]any{
 				"timeline": map[string]any{"period": &period14d, "group_by": nil, "top": nil}, "calendar": map[string]any{"period": &period14d, "group_by": nil, "top": nil}, "stack": map[string]any{"period": &period14d, "group_by": nil, "top": nil}, "ranking": map[string]any{"period": &period1y, "group_by": &book, "top": &top10},
 			},
+		}, map[string]any{
+			"id": "total_notes", "title": text("Total notes", "总笔记数"), "description": text("Current all-time notes: highlights, thoughts, and bookmarks.", "当前全量笔记数：划线、想法和书签。"),
+			"unit": map[string]any{"id": "note", "label": text("notes", "笔记"), "placement": "suffix", "decimal_places": 0}, "aggregation": "sum", "summary": "total",
+			"capabilities": map[string]any{"group_by": []any{map[string]any{"id": "book", "label": text("Book", "书籍")}}, "filters": []any{}, "charts": map[string]any{"ranking": chart([]string{"day"}, []string{"book"}, []string{"all"})}},
+			"defaults":     map[string]any{"ranking": map[string]any{"period": "all", "group_by": "book", "top": 10}},
 		}},
 		"environment": []any{map[string]any{"name": "WEREAD_API_KEY", "required": true, "sensitive": true, "label": text("WeRead API key", "微信读书 API 密钥"), "how_to_get": text("Export WEREAD_API_KEY in the shell that starts ccuv.", "请在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"), "help_url": "https://weread.qq.com/r/weread-skills"}},
 	}
