@@ -11,8 +11,7 @@ func TestHandleProbeDoesNotCreateGatewayAndReturnsRankingDefaults(t *testing.T) 
 	input := []byte(`{
 		"protocol":"ccuv.custom/v1",
 		"request_id":"probe-test",
-		"request_kind":"probe",
-		"dataset_id":"weread"
+		"request_kind":"probe"
 	}`)
 	called := false
 
@@ -31,8 +30,11 @@ func TestHandleProbeDoesNotCreateGatewayAndReturnsRankingDefaults(t *testing.T) 
 	if !ok {
 		t.Fatalf("response = %#v", response)
 	}
+	if result.DatasetID != protocol.DatasetID {
+		t.Fatalf("dataset_id = %q", result.DatasetID)
+	}
 	defaults := result.Descriptor.Defaults["ranking"]
-	if defaults.Period == nil || *defaults.Period != "1mo" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
+	if defaults.Period == nil || *defaults.Period != "1y" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
 		t.Fatalf("ranking defaults = %#v", defaults)
 	}
 	if len(result.Descriptor.Environment) != 1 || result.Descriptor.Environment[0].Name != "WEREAD_API_KEY" || !result.Descriptor.Environment[0].Required || !result.Descriptor.Environment[0].Sensitive {

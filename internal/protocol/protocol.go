@@ -50,7 +50,7 @@ type Request struct {
 	Protocol    string   `json:"protocol"`
 	RequestID   string   `json:"request_id"`
 	RequestKind string   `json:"request_kind"`
-	DatasetID   string   `json:"dataset_id"`
+	DatasetID   string   `json:"dataset_id,omitempty"`
 	Timezone    *string  `json:"timezone"`
 	Range       *Range   `json:"range,omitempty"`
 	Query       Query    `json:"query"`
@@ -95,13 +95,13 @@ func InvalidRequestFor(input []byte) (ErrorResponse, bool) {
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return ErrorResponse{}, false
 	}
-	if envelope.Protocol != Version || !idPattern.MatchString(envelope.RequestID) || envelope.DatasetID != DatasetID || (envelope.RequestKind != "chart" && envelope.RequestKind != "summary" && envelope.RequestKind != "probe") {
+	if envelope.Protocol != Version || !idPattern.MatchString(envelope.RequestID) || (envelope.RequestKind != "chart" && envelope.RequestKind != "summary" && envelope.RequestKind != "probe") || (envelope.RequestKind != "probe" && envelope.DatasetID != DatasetID) {
 		return ErrorResponse{}, false
 	}
 	return ErrorFor(
 		Request{
 			Protocol: envelope.Protocol, RequestID: envelope.RequestID,
-			RequestKind: envelope.RequestKind, DatasetID: envelope.DatasetID,
+			RequestKind: envelope.RequestKind, DatasetID: DatasetID,
 		},
 		"invalid_request",
 		"The local WeRead command could not decode this request. Update it to a version compatible with ccuv.",
@@ -117,9 +117,6 @@ func (r Request) Validate() error {
 	if !idPattern.MatchString(r.RequestID) {
 		return fmt.Errorf("invalid request_id")
 	}
-	if r.DatasetID != DatasetID {
-		return fmt.Errorf("unsupported dataset")
-	}
 	if r.RequestKind != "chart" && r.RequestKind != "summary" && r.RequestKind != "probe" {
 		return fmt.Errorf("invalid request_kind")
 	}
@@ -128,6 +125,9 @@ func (r Request) Validate() error {
 			return fmt.Errorf("probe request must omit query, timezone, range, and summary")
 		}
 		return nil
+	}
+	if r.DatasetID != DatasetID {
+		return fmt.Errorf("unsupported dataset")
 	}
 	if r.Timezone == nil || *r.Timezone == "" {
 		return fmt.Errorf("timezone is required")
@@ -333,7 +333,7 @@ type EnvironmentDeclaration struct {
 }
 
 func NewProbeResponse(request Request) ProbeResponse {
-	period14d, period1mo := "14d", "1mo"
+	period14d, period1y := "14d", "1y"
 	book, top10 := "book", 10
 	charts := map[string]ChartCapability{}
 	for _, kind := range []string{"timeline", "calendar", "stack"} {
@@ -343,21 +343,34 @@ func NewProbeResponse(request Request) ProbeResponse {
 	return ProbeResponse{
 		Protocol: Version, RequestID: request.RequestID, RequestKind: "probe", DatasetID: DatasetID, Status: "ok",
 		Descriptor: ProbeDescriptor{
-			Revision: "weread-1", Version: "0.1.0", SourceTimezone: "Asia/Shanghai",
-			Dataset:      Dataset{LocalizedText{"WeRead", "微信读书"}, LocalizedText{"Daily reading time", "每日阅读时长"}, Unit{"minute", LocalizedText{"minutes", "分钟"}, "suffix", 2}},
+			Revision: "weread-1", Version: "0.0.1", SourceTimezone: "Asia/Shanghai",
+			Dataset: Dataset{
+				LocalizedText{"WeRead", "微信读书"},
+				LocalizedText{
+					"Daily reading time from your WeRead activity. Ranking can show supported periods by book or category.",
+					"基于微信读书活动统计每日阅读时长；在支持的周期内，排行可按书籍或分类查看。",
+				},
+				Unit{"minute", LocalizedText{"minutes", "分钟"}, "suffix", 2},
+			},
 			Capabilities: Capabilities{groupDimensions(), []any{}, charts},
 			Defaults: map[string]ChartDefaults{
 				"timeline": {Period: &period14d}, "calendar": {Period: &period14d}, "stack": {Period: &period14d},
-				"ranking": {Period: &period1mo, GroupBy: &book, Top: &top10},
+				"ranking": {Period: &period1y, GroupBy: &book, Top: &top10},
 			},
 			Environment: []EnvironmentDeclaration{{
 				Name: "WEREAD_API_KEY", Required: true, Sensitive: true,
-				Label:    LocalizedText{"WeRead API key", "微信读书 API 密钥"},
-				HowToGet: LocalizedText{"Set the key in your environment.", "请通过环境变量设置密钥。"},
+				Label: LocalizedText{"WeRead API key", "微信读书 API 密钥"},
+				HowToGet: LocalizedText{
+					"Follow the authorization instructions in weread-skills, then export WEREAD_API_KEY in the shell that starts ccuv.",
+					"请先按 weread-skills 的授权说明获取凭据，再在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。",
+				},
+				HelpURL: stringPointer("https://weread.qq.com/r/weread-skills"),
 			}},
 		},
 	}
 }
+
+func stringPointer(value string) *string { return &value }
 
 func NewChartResponse(request Request, points []Point) ChartResponse {
 	charts := map[string]ChartCapability{}

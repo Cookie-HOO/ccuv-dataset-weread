@@ -8,9 +8,9 @@ ccuv-dataset-weread ccuv
 
 ## Current status
 
-This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. It is still **unreleased**: a fresh Dashboard render against the authorized source must succeed before any official catalog entry is published.
+This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.0.1` release is available for local ccuv Dataset registration and GitHub repository installation; it is not yet an official catalog entry.
 
-`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1mo"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative.
+`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative.
 
 The intended first artifact targets `darwin/arm64` and contains exactly:
 
@@ -60,4 +60,4 @@ Tests use only fake gateway records and do not contact a live account.
 
 ## Release gate
 
-Tags currently validate and retain an unpublished archive only; the workflow cannot create a GitHub Release. Do not enable official publication until a real gateway response contract has been validated without recording personal data, the network adapter has bounded/redacted failure handling, and the generated archive passes both this repository's verifier and ccuv's archive validator.
+Do not add this Dataset to the official catalog until a real gateway response contract has been validated without recording personal data, the network adapter has bounded/redacted failure handling, and the generated archive passes both this repository's verifier and ccuv's archive validator.

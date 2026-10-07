@@ -1,21 +1,52 @@
 {
   "schema": "ccuv.dataset/v1",
-  "id": "weread",
-  "version": "0.1.0",
   "protocol": "ccuv.custom/v1",
   "entrypoint": "bin/ccuv-dataset-weread",
   "platform": {"os": "darwin", "arch": "arm64"},
-  "metric": {
-    "id": "reading-time",
-    "title": {"en": "Reading time", "zh-CN": "阅读时长"},
-    "unit": {"id": "minute", "label": {"en": "minutes", "zh-CN": "分钟"}, "placement": "suffix", "decimal_places": 2}
-  },
-  "charts": ["timeline", "calendar", "stack", "ranking"],
-  "environment": [{
-    "name": "WEREAD_API_KEY",
-    "required": true,
-    "sensitive": true,
-    "label": {"en": "WeRead API key", "zh-CN": "微信读书 API 密钥"},
-    "how_to_get": {"en": "Configure a credential in your approved gateway implementation.", "zh-CN": "请在获准的数据网关实现中配置凭据。"}
-  }]
+  "probe": {
+    "dataset_id": "weread",
+    "descriptor": {
+      "revision": "weread-1",
+      "version": "0.0.1",
+      "source_timezone": "Asia/Shanghai",
+      "dataset": {
+        "title": {"en": "WeRead", "zh-CN": "微信读书"},
+        "description": {
+          "en": "Daily reading time from your WeRead activity. Ranking can show supported periods by book or category.",
+          "zh-CN": "基于微信读书活动统计每日阅读时长；在支持的周期内，排行可按书籍或分类查看。"
+        },
+        "unit": {"id": "minute", "label": {"en": "minutes", "zh-CN": "分钟"}, "placement": "suffix", "decimal_places": 2}
+      },
+      "capabilities": {
+        "group_by": [
+          {"id": "book", "label": {"en": "Book", "zh-CN": "书籍"}},
+          {"id": "category", "label": {"en": "Category", "zh-CN": "分类"}}
+        ],
+        "filters": [],
+        "charts": {
+          "timeline": {"granularities": ["day"], "group_by": [], "filters": []},
+          "calendar": {"granularities": ["day"], "group_by": [], "filters": []},
+          "stack": {"granularities": ["day"], "group_by": [], "filters": []},
+          "ranking": {"granularities": ["day"], "group_by": ["book", "category"], "filters": []}
+        }
+      },
+      "defaults": {
+        "timeline": {"period": "14d", "group_by": null, "top": null},
+        "calendar": {"period": "14d", "group_by": null, "top": null},
+        "stack": {"period": "14d", "group_by": null, "top": null},
+        "ranking": {"period": "1y", "group_by": "book", "top": 10}
+      },
+      "environment": [{
+        "name": "WEREAD_API_KEY",
+        "required": true,
+        "sensitive": true,
+        "label": {"en": "WeRead API key", "zh-CN": "微信读书 API 密钥"},
+        "how_to_get": {
+          "en": "Follow the authorization instructions in weread-skills, then export WEREAD_API_KEY in the shell that starts ccuv.",
+          "zh-CN": "请先按 weread-skills 的授权说明获取凭据，再在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"
+        },
+        "help_url": "https://weread.qq.com/r/weread-skills"
+      }]
+    }
+  }
 }

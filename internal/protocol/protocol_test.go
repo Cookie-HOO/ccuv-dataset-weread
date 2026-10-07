@@ -99,24 +99,24 @@ func TestValidateRequiresValidTimezone(t *testing.T) {
 }
 
 func TestProbeRequestValidatesWithoutTimezoneOrQuery(t *testing.T) {
-	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID}
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe"}
 	if err := request.Validate(); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestProbeRequestRejectsQueryFields(t *testing.T) {
-	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID, Query: Query{Filters: map[string][]string{}}}
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", Query: Query{Filters: map[string][]string{}}}
 	if err := request.Validate(); err == nil {
 		t.Fatal("probe query was accepted")
 	}
 }
 
 func TestProbeResponseDeclaresRankingDefaults(t *testing.T) {
-	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe", DatasetID: DatasetID}
+	request := Request{Protocol: Version, RequestID: "probe-test", RequestKind: "probe"}
 	response := NewProbeResponse(request)
 	defaults := response.Descriptor.Defaults["ranking"]
-	if defaults.Period == nil || *defaults.Period != "1mo" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
+	if defaults.Period == nil || *defaults.Period != "1y" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
 		t.Fatalf("ranking defaults = %#v", defaults)
 	}
 }
