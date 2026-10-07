@@ -1,6 +1,6 @@
 # CCUV WeRead Dataset
 
-Native `ccuv.custom/v1` dataset adapter for WeRead reading time. The stable dataset ID is `weread`; after installation, ccuv invokes:
+Native `ccuv.custom/v2` dataset adapter for WeRead metrics. The stable dataset ID is `weread`; after installation, ccuv invokes:
 
 ```text
 ccuv-dataset-weread ccuv
@@ -23,9 +23,16 @@ No README, interpreter, source tree, credential, or additional runtime file is a
 
 ## Data semantics
 
-- Metric: additive daily reading time in minutes, with two decimal places.
+- Default Metric: additive daily reading time in minutes, with two decimal places.
 - Views: Timeline, Calendar, Stack, and Ranking support daily ungrouped Total reading time for arbitrary source-backed date ranges.
 - The adapter retains exact integer source seconds internally, then converts outward metric points to minutes rounded to two decimal places. Summary totals sum raw seconds before one final conversion and rounding.
+
+The adapter also exposes `total_notes`: the current all-time personal note count
+per book, calculated as `reviewCount + noteCount + bookmarkCount` from
+`/user/notebooks`. It supports only `Ranking`, `period: all`, and grouping by
+book. It deliberately has no Timeline, Calendar, Stack, or Monitor capability:
+bookmarks have no date-attributed creation record in the available API, so a
+daily history would not be truthful.
 - WeRead source dates and source requests always use `Asia/Shanghai`. A valid request timezone other than `Asia/Shanghai` succeeds with a localized `timezone_not_supported` warning; it does not change source calendar interpretation.
 - The adapter uses annual `dailyReadTimes` when available and otherwise requests a month-specific `readTimes` map. An omitted date is treated as zero only when that response's authoritative `totalReadTime` exactly equals the sum of its returned daily map; otherwise it returns `range_not_available`. Current dates are decided by this true source-coverage rule, not a local clock cutoff.
 - Ranking declares the cycle `Total → Book → Category`. Grouped selections are Dataset-owned: they require the semantic `range.period` `1w`, `1mo`, or `1y` (week-to-date, month-to-date, or year-to-date). Other group/period combinations return `unsupported_query` with `unsupported: {"field": "range.period", "value": "<selected period>"}`. ccuv clears a previously accepted graph for this field, then the localized response names the supported periods; it never silently changes the selection or substitutes Total.
