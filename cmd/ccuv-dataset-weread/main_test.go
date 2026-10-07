@@ -106,6 +106,33 @@ func TestHandleV2TotalNotesSupportsOnlyAllBookRanking(t *testing.T) {
 	}
 }
 
+func TestHandleV2TotalNotesSummaryReturnsOneTotal(t *testing.T) {
+	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-summary","request_kind":"summary","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","query":{"filters":{}},"summary":{"scope":"total","intervals":{"current":{"start_date":"1971-01-01","end_date":"2026-10-08"}}}}`)
+	response, err := handle(input, func() (weread.Gateway, error) {
+		return weread.FakeGateway{NotebookRecords: []weread.RankedRecord{{ID: "book:42", Label: "Book", Seconds: "9"}, {ID: "book:7", Label: "Other", Seconds: "3"}}}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(response)
+	var body struct {
+		Status  string `json:"status"`
+		Summary struct {
+			Metric struct {
+				Current struct {
+					Value string `json:"value"`
+				} `json:"current"`
+			} `json:"metric"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(encoded, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Status != "ok" || body.Summary.Metric.Current.Value != "12" {
+		t.Fatalf("unexpected notes summary: %s", encoded)
+	}
+}
+
 func TestHandleRejectsAuthorBeforeCreatingGateway(t *testing.T) {
 	input := []byte(`{
 		"protocol":"ccuv.custom/v1",

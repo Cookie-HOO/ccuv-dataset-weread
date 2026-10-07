@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
@@ -80,7 +81,10 @@ func handleV2(input []byte, envelope struct {
 	if envelope.RequestKind == "chart" && envelope.MetricID == "total_notes" {
 		return handleV2TotalNotes(input, envelope, gatewayFactory)
 	}
-	if envelope.RequestKind != "chart" || envelope.MetricID != "reading_time" {
+	if envelope.RequestKind == "summary" && envelope.MetricID == "total_notes" {
+		return handleV2TotalNotesSummary(envelope, gatewayFactory)
+	}
+	if (envelope.RequestKind != "chart" && envelope.RequestKind != "summary") || envelope.MetricID != "reading_time" {
 		return map[string]any{
 			"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": envelope.RequestKind, "dataset_id": protocol.DatasetID, "status": "error",
 			"error": map[string]any{"code": "unsupported_chart_kind", "message": map[string]string{"en": "WeRead supports only the reading_time historical metric.", "zh-CN": "微信读书仅支持阅读时长历史指标。"}},
@@ -111,6 +115,43 @@ func handleV2(input []byte, envelope struct {
 	response["protocol"] = "ccuv.custom/v2"
 	response["metric_id"] = "reading_time"
 	return response, nil
+}
+
+func handleV2TotalNotesSummary(envelope struct {
+	Protocol    string `json:"protocol"`
+	RequestID   string `json:"request_id"`
+	RequestKind string `json:"request_kind"`
+	MetricID    string `json:"metric_id"`
+}, gatewayFactory func() (weread.Gateway, error)) (any, error) {
+	gateway, err := gatewayFactory()
+	if err != nil {
+		return sourceUnavailableV2(envelope), nil
+	}
+	notebooks, ok := gateway.(weread.NotebookRankingGateway)
+	if !ok {
+		return sourceUnavailableV2(envelope), nil
+	}
+	records, err := notebooks.NotebookRanking(context.Background())
+	if err != nil {
+		return sourceUnavailableV2(envelope), nil
+	}
+	var total uint64
+	for _, record := range records {
+		value, err := strconv.ParseUint(record.Seconds, 10, 64)
+		if err != nil || ^uint64(0)-total < value {
+			return sourceUnavailableV2(envelope), nil
+		}
+		total += value
+	}
+	value := strconv.FormatUint(total, 10)
+	return map[string]any{
+		"protocol": "ccuv.custom/v2", "request_id": envelope.RequestID, "request_kind": "summary", "dataset_id": protocol.DatasetID, "metric_id": "total_notes", "status": "ok",
+		"summary": map[string]any{"metric": map[string]any{
+			"id": "total_notes", "label": map[string]string{"en": "Total notes", "zh-CN": "总笔记数"},
+			"current":    map[string]any{"value": value, "display": map[string]string{"en": value + " notes", "zh-CN": value + " 条笔记"}},
+			"sequential": map[string]any{"status": "unavailable"}, "year_over_year": map[string]any{"status": "unavailable"},
+		}},
+	}, nil
 }
 
 func handleV2TotalNotes(input []byte, envelope struct {
