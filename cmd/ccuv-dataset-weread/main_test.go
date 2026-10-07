@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol"
@@ -39,6 +40,45 @@ func TestHandleProbeDoesNotCreateGatewayAndReturnsRankingDefaults(t *testing.T) 
 	}
 	if len(result.Descriptor.Environment) != 1 || result.Descriptor.Environment[0].Name != "WEREAD_API_KEY" || !result.Descriptor.Environment[0].Required || !result.Descriptor.Environment[0].Sensitive {
 		t.Fatalf("environment = %#v", result.Descriptor.Environment)
+	}
+}
+
+func TestHandleV2ProbeDefaultsToReadingTimeWithoutMonitor(t *testing.T) {
+	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"probe-v2","request_kind":"probe"}`)
+
+	response, err := handle(input, func() (weread.Gateway, error) {
+		t.Fatal("gateway factory was called")
+		return nil, nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Protocol   string `json:"protocol"`
+		Descriptor struct {
+			DefaultMetricID string `json:"default_metric_id"`
+			Metrics         []struct {
+				ID           string `json:"id"`
+				Capabilities struct {
+					Charts map[string]json.RawMessage `json:"charts"`
+				} `json:"capabilities"`
+			} `json:"metrics"`
+		} `json:"descriptor"`
+	}
+	if err := json.Unmarshal(encoded, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Protocol != "ccuv.custom/v2" || body.Descriptor.DefaultMetricID != "reading_time" || len(body.Descriptor.Metrics) != 1 {
+		t.Fatalf("unexpected V2 probe: %s", encoded)
+	}
+	charts := body.Descriptor.Metrics[0].Capabilities.Charts
+	if body.Descriptor.Metrics[0].ID != "reading_time" || charts["monitor"] != nil {
+		t.Fatalf("unexpected metric capability: %s", encoded)
 	}
 }
 
