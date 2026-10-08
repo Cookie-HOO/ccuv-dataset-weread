@@ -23,12 +23,14 @@ jobs:
         run: |
           test "${GITHUB_REF_NAME#v}" = "$(jq -r .version manifest.json)"
           test -z "$(gofmt -l $(find cmd internal -name '*.go' -type f))"
+          go run ./cmd/manifest --os darwin --arch arm64 --out dist/generated-manifest.json
+          cmp manifest.json dist/generated-manifest.json
           go test ./...
           go vet ./...
       - name: Build and validate reproducible native archive
         run: |
-          ./scripts/package.sh dist/first.tar.gz
-          ./scripts/package.sh dist/second.tar.gz
+          ./scripts/package.sh darwin arm64 dist/first.tar.gz
+          ./scripts/package.sh darwin arm64 dist/second.tar.gz
           cmp dist/first.tar.gz dist/second.tar.gz
           go run ./cmd/archiveverify dist/first.tar.gz
           sha256sum dist/first.tar.gz > dist/checksums.txt

@@ -14,10 +14,7 @@ if [ "$target_os" = windows ]; then
   entrypoint=$entrypoint.exe
   binary=$binary.exe
 fi
-sed \
-  -e "s/\"os\": \"darwin\", \"arch\": \"arm64\"/\"os\": \"$target_os\", \"arch\": \"$target_arch\"/" \
-  -e "s#\"entrypoint\": \"bin/ccuv-dataset-weread\"#\"entrypoint\": \"$entrypoint\"#" \
-  manifest.json > "$work/manifest.json"
+go run ./cmd/manifest --os "$target_os" --arch "$target_arch" --out "$work/manifest.json"
 CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" go build -trimpath -ldflags='-s -w -buildid=' -o "$binary" ./cmd/ccuv-dataset-weread
 go run ./cmd/package \
   --out "$out" \

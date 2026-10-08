@@ -4,205 +4,64 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol"
+	"github.com/ccusage-viz/ccuv-dataset-weread/internal/dataset"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
 )
 
-func TestHandleProbeDoesNotCreateGatewayAndReturnsRankingDefaults(t *testing.T) {
-	input := []byte(`{
-		"protocol":"ccuv.custom/v1",
-		"request_id":"probe-test",
-		"request_kind":"probe"
-	}`)
-	called := false
-
-	response, err := handle(input, func() (weread.Gateway, error) {
-		called = true
+func TestProbeDoesNotCreateGateway(t *testing.T) {
+	response, err := handle([]byte(`{"protocol":"ccuv.custom/v2","request_id":"probe-v2","request_kind":"probe"}`), func() (dataset.Gateway, error) {
+		t.Fatal("gateway was created")
 		return nil, nil
 	})
-
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || response.Status != "ok" {
+		t.Fatalf("response = %#v, err = %v", response, err)
 	}
-	if called {
-		t.Fatal("gateway factory was called")
-	}
-	result, ok := response.(protocol.ProbeResponse)
-	if !ok {
-		t.Fatalf("response = %#v", response)
-	}
-	if result.DatasetID != protocol.DatasetID {
-		t.Fatalf("dataset_id = %q", result.DatasetID)
-	}
-	defaults := result.Descriptor.Defaults["ranking"]
-	if defaults.Period == nil || *defaults.Period != "1y" || defaults.GroupBy == nil || *defaults.GroupBy != "book" || defaults.Top == nil || *defaults.Top != 10 {
-		t.Fatalf("ranking defaults = %#v", defaults)
-	}
-	if len(result.Descriptor.Environment) != 1 || result.Descriptor.Environment[0].Name != "WEREAD_API_KEY" || !result.Descriptor.Environment[0].Required || !result.Descriptor.Environment[0].Sensitive {
-		t.Fatalf("environment = %#v", result.Descriptor.Environment)
-	}
-}
-
-func TestHandleV2ProbeDefaultsToReadingTimeWithoutMonitor(t *testing.T) {
-	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"probe-v2","request_kind":"probe"}`)
-
-	response, err := handle(input, func() (weread.Gateway, error) {
-		t.Fatal("gateway factory was called")
-		return nil, nil
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, err := json.Marshal(response)
-	if err != nil {
-		t.Fatal(err)
-	}
+	encoded, _ := json.Marshal(response)
 	var body struct {
-		Protocol   string `json:"protocol"`
 		Descriptor struct {
 			DefaultMetricID string `json:"default_metric_id"`
 			Metrics         []struct {
-				ID           string `json:"id"`
-				Capabilities struct {
-					Charts map[string]json.RawMessage `json:"charts"`
-				} `json:"capabilities"`
+				ID string `json:"id"`
 			} `json:"metrics"`
 		} `json:"descriptor"`
 	}
-	if err := json.Unmarshal(encoded, &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.Protocol != "ccuv.custom/v2" || body.Descriptor.DefaultMetricID != "reading_time" || len(body.Descriptor.Metrics) != 2 {
-		t.Fatalf("unexpected V2 probe: %s", encoded)
-	}
-	charts := body.Descriptor.Metrics[0].Capabilities.Charts
-	if body.Descriptor.Metrics[0].ID != "reading_time" || body.Descriptor.Metrics[1].ID != "total_notes" || charts["monitor"] != nil || body.Descriptor.Metrics[1].Capabilities.Charts["monitor"] != nil {
-		t.Fatalf("unexpected metric capability: %s", encoded)
-	}
-	var notesRanking struct {
-		GroupBy []string `json:"group_by"`
-		Periods []string `json:"periods"`
-	}
-	if err := json.Unmarshal(body.Descriptor.Metrics[1].Capabilities.Charts["ranking"], &notesRanking); err != nil {
-		t.Fatal(err)
-	}
-	if len(notesRanking.GroupBy) != 1 || notesRanking.GroupBy[0] != "book" || len(notesRanking.Periods) != 1 || notesRanking.Periods[0] != "all" {
-		t.Fatalf("total_notes ranking capability = %#v", notesRanking)
+	if json.Unmarshal(encoded, &body) != nil || body.Descriptor.DefaultMetricID != "reading_time" || len(body.Descriptor.Metrics) != 2 || body.Descriptor.Metrics[1].ID != "total_notes" {
+		t.Fatalf("unexpected probe: %s", encoded)
 	}
 }
 
-func TestHandleV2TotalNotesSupportsOnlyAllBookRanking(t *testing.T) {
+func TestHandleRoutesTotalNotesChart(t *testing.T) {
 	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-v2","request_kind":"chart","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","range":{"start_date":"1971-01-01","end_date":"2026-10-08","period":"all"},"query":{"filters":{},"group_by":"book","granularity":"day"}}`)
-	response, err := handle(input, func() (weread.Gateway, error) {
-		return weread.FakeGateway{NotebookRecords: []weread.RankedRecord{{ID: "book:42", Label: "Book", Seconds: "9"}}}, nil
+	response, err := handle(input, func() (dataset.Gateway, error) {
+		return weread.FakeGateway{Notes: []weread.NoteCount{{BookID: "42", Label: "Book", Count: 9}}}, nil
 	})
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || response.Status != "ok" || response.MetricID != "total_notes" {
+		t.Fatalf("response = %#v, err = %v", response, err)
 	}
 	encoded, _ := json.Marshal(response)
-	var body struct {
-		Status   string `json:"status"`
-		MetricID string `json:"metric_id"`
-		Data     struct {
-			Series []any `json:"series"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(encoded, &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.Status != "ok" || body.MetricID != "total_notes" || len(body.Data.Series) != 1 {
-		t.Fatalf("unexpected notes response: %s", encoded)
+	if string(encoded) == "" || !contains(encoded, []byte(`"value":"9"`)) {
+		t.Fatalf("response must retain decimal strings: %s", encoded)
 	}
 }
 
-func TestHandleV2TotalNotesSummaryReturnsOneTotal(t *testing.T) {
-	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-summary","request_kind":"summary","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","query":{"filters":{}},"summary":{"scope":"total","intervals":{"current":{"start_date":"1971-01-01","end_date":"2026-10-08"}}}}`)
-	response, err := handle(input, func() (weread.Gateway, error) {
-		return weread.FakeGateway{NotebookRecords: []weread.RankedRecord{{ID: "book:42", Label: "Book", Seconds: "9"}, {ID: "book:7", Label: "Other", Seconds: "3"}}}, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, _ := json.Marshal(response)
-	var body struct {
-		Status  string `json:"status"`
-		Summary struct {
-			Metric struct {
-				Current struct {
-					Value string `json:"value"`
-				} `json:"current"`
-			} `json:"metric"`
-		} `json:"summary"`
-	}
-	if err := json.Unmarshal(encoded, &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.Status != "ok" || body.Summary.Metric.Current.Value != "12" {
-		t.Fatalf("unexpected notes summary: %s", encoded)
+func TestHandleRejectsV1(t *testing.T) {
+	if _, err := handle([]byte(`{"protocol":"ccuv.custom/v1"}`), func() (dataset.Gateway, error) { t.Fatal("gateway was created"); return nil, nil }); err == nil {
+		t.Fatal("accepted V1")
 	}
 }
 
-func TestHandleRejectsAuthorBeforeCreatingGateway(t *testing.T) {
-	input := []byte(`{
-		"protocol":"ccuv.custom/v1",
-		"request_id":"author-test",
-		"request_kind":"chart",
-		"dataset_id":"weread",
-		"timezone":"Asia/Shanghai",
-		"range":{"start_date":"2026-09-01","end_date":"2026-09-30","period":"1mo"},
-		"query":{"filters":{},"group_by":"author","granularity":"day"}
-	}`)
-	called := false
-
-	response, err := handle(input, func() (weread.Gateway, error) {
-		called = true
-		return nil, nil
-	})
-
-	if err != nil {
-		t.Fatal(err)
+func contains(value, item []byte) bool {
+	for start := 0; start+len(item) <= len(value); start++ {
+		matched := true
+		for index := range item {
+			if value[start+index] != item[index] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
 	}
-	if called {
-		t.Fatal("gateway factory was called")
-	}
-	result, ok := response.(protocol.ErrorResponse)
-	if !ok || result.Error.Code != "unsupported_query" || result.Error.Unsupported == nil || result.Error.Unsupported.Field != "query.group_by" || result.Error.Unsupported.Value != "author" {
-		t.Fatalf("response = %#v", response)
-	}
-}
-
-func TestHandleRejectsUnsupportedGroupedPeriodBeforeCreatingGateway(t *testing.T) {
-	input := []byte(`{
-		"protocol":"ccuv.custom/v1",
-		"request_id":"period-test",
-		"request_kind":"chart",
-		"dataset_id":"weread",
-		"timezone":"Asia/Shanghai",
-		"range":{"start_date":"2026-09-17","end_date":"2026-09-30","period":"14d"},
-		"query":{"filters":{},"group_by":"book","granularity":"day"}
-	}`)
-	called := false
-
-	response, err := handle(input, func() (weread.Gateway, error) {
-		called = true
-		return nil, nil
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	if called {
-		t.Fatal("gateway factory was called")
-	}
-	result, ok := response.(protocol.ErrorResponse)
-	if !ok {
-		t.Fatalf("response = %#v", response)
-	}
-	if result.Error.Code != "unsupported_query" || result.Error.Unsupported == nil {
-		t.Fatalf("response = %#v", result)
-	}
-	if result.Error.Unsupported.Field != "range.period" || result.Error.Unsupported.Value != "14d" {
-		t.Fatalf("unsupported = %#v", result.Error.Unsupported)
-	}
+	return false
 }

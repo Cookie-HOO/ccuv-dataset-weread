@@ -45,13 +45,13 @@ WeRead does not expose complete per-entity daily attribution. Grouped results ar
 - **Category** uses `preferCategory`, an official preference/duration summary (currently source-capped, typically up to eight entries), not an exhaustive category ranking.
 - **Author** is not advertised because the source's thresholded `preferAuthor` preference summary exposes formatted duration text rather than verified numeric seconds. Any grouping outside the declared Book and Category allowlist returns `unsupported_query` with `unsupported: {"field": "query.group_by", "value": "<selected grouping>"}` before the gateway is contacted. The localized message names the supported groupings without prescribing a host control. ccuv preserves an already accepted chart for this non-period rejection; the adapter never estimates or parses a display string as duration.
 
-Requests always include inclusive absolute dates; `range.period` carries the selected rolling-period semantic and must agree with those dates. A fixed range sends `period: null` and cannot request a grouped summary. The protocol identifier remains `ccuv.custom/v1`.
+Requests always include inclusive absolute dates; `range.period` carries the selected rolling-period semantic and must agree with those dates. A fixed range sends `period: null` and cannot request a grouped summary. The protocol identifier is `ccuv.custom/v2`.
 
 The adapter does not offer account or free-form filtering. Tests use synthetic or redacted fixtures only—never account history or credentials.
 
 ## Credentials and privacy
 
-The release manifest declares `WEREAD_API_KEY` as required and sensitive. A future verified gateway implementation will read it only through `os.LookupEnv` and send it only in an HTTPS Bearer authorization header. It must never accept it as a command argument, write it to disk, include it in diagnostics, or emit raw source responses.
+The release manifest declares `WEREAD_API_KEY` as required and sensitive. The gateway reads it only through `os.LookupEnv` and sends it only in an HTTPS Bearer authorization header. It never accepts it as a command argument, writes it to disk, includes it in diagnostics, or emits raw source responses.
 
 ## Development
 
@@ -59,6 +59,7 @@ The release manifest declares `WEREAD_API_KEY` as required and sensitive. A futu
 gofmt -w cmd internal
 go test ./...
 go vet ./...
+go run ./cmd/manifest --os darwin --arch arm64 --out manifest.json
 ./scripts/package.sh
 go run ./cmd/archiveverify dist/ccuv-dataset-weread-darwin-arm64.tar.gz
 ```

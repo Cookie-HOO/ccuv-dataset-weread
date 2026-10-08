@@ -14,13 +14,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol"
+	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol/v2"
 )
 
 const (
-	gatewayURL       = "https://i.weread.qq.com/api/agent/gateway"
-	skillVersion     = "1.0.4"
-	maxResponseBytes = 1 << 20
+	gatewayURL         = "https://i.weread.qq.com/api/agent/gateway"
+	skillVersion       = "1.0.4"
+	maxResponseBytes   = 1 << 20
+	maxNotebookPages   = 100
+	maxNotebookRecords = 10_000
 )
 
 var weReadLocation = func() *time.Location {
@@ -84,7 +86,7 @@ func NewHTTPGatewayFromEnvironment() (HTTPGateway, error) {
 	}, nil
 }
 
-func (g HTTPGateway) PeriodRanking(ctx context.Context, interval protocol.Range, groupBy string) ([]RankedRecord, error) {
+func (g HTTPGateway) PeriodRanking(ctx context.Context, interval v2.Range, groupBy string) ([]ReadingRanking, error) {
 	if g.client == nil || g.endpoint != gatewayURL || strings.TrimSpace(g.apiKey) == "" {
 		return nil, newSourceFailure(sourceFailureRequest)
 	}
@@ -100,7 +102,7 @@ func (g HTTPGateway) PeriodRanking(ctx context.Context, interval protocol.Range,
 	if err != nil {
 		return nil, err
 	}
-	var records []RankedRecord
+	var records []ReadingRanking
 	switch groupBy {
 	case "book":
 		records, err = parseBookRanking(response.ReadLongest)
@@ -115,13 +117,14 @@ func (g HTTPGateway) PeriodRanking(ctx context.Context, interval protocol.Range,
 	return records, nil
 }
 
-func (g HTTPGateway) NotebookRanking(ctx context.Context) ([]RankedRecord, error) {
+func (g HTTPGateway) NotebookCounts(ctx context.Context) ([]NoteCount, error) {
 	if g.client == nil || g.endpoint != gatewayURL || strings.TrimSpace(g.apiKey) == "" {
 		return nil, newSourceFailure(sourceFailureRequest)
 	}
-	var records []RankedRecord
+	records := make([]NoteCount, 0)
+	seen := make(map[string]struct{})
 	var lastSort *int64
-	for {
+	for page := 0; page < maxNotebookPages; page++ {
 		body := map[string]any{"api_name": "/user/notebooks", "count": 100, "skill_version": skillVersion}
 		if lastSort != nil {
 			body["lastSort"] = *lastSort
@@ -149,21 +152,24 @@ func (g HTTPGateway) NotebookRanking(ctx context.Context) ([]RankedRecord, error
 			return nil, newSourceFailure(sourceFailureResponse)
 		}
 		for _, book := range response.Books {
-			var id string
-			if err := json.Unmarshal(book.BookID, &id); err != nil {
-				var numeric json.Number
-				if err := json.Unmarshal(book.BookID, &numeric); err != nil {
-					return nil, newSourceFailure(sourceFailureResponse)
-				}
-				id = numeric.String()
+			id, err := sourceID(book.BookID)
+			if err != nil {
+				return nil, newSourceFailure(sourceFailureResponse)
 			}
 			if id == "" || book.Book.Title == "" || ^uint64(0)-book.ReviewCount < book.NoteCount || ^uint64(0)-book.ReviewCount-book.NoteCount < book.BookmarkCount {
 				return nil, newSourceFailure(sourceFailureResponse)
 			}
-			records = append(records, RankedRecord{ID: "book:" + id, Label: book.Book.Title, Seconds: strconv.FormatUint(book.ReviewCount+book.NoteCount+book.BookmarkCount, 10)})
+			if _, duplicate := seen[id]; duplicate {
+				continue
+			}
+			if len(records) >= maxNotebookRecords {
+				return nil, newSourceFailure(sourceFailureResponse)
+			}
+			seen[id] = struct{}{}
+			records = append(records, NoteCount{BookID: id, Label: book.Book.Title, Count: book.ReviewCount + book.NoteCount + book.BookmarkCount})
 		}
 		if response.HasMore == 0 {
-			break
+			return records, nil
 		}
 		if len(response.Books) == 0 {
 			return nil, newSourceFailure(sourceFailureResponse)
@@ -174,10 +180,10 @@ func (g HTTPGateway) NotebookRanking(ctx context.Context) ([]RankedRecord, error
 		}
 		lastSort = &next
 	}
-	return records, nil
+	return nil, newSourceFailure(sourceFailureResponse)
 }
 
-func (g HTTPGateway) DailyRecords(ctx context.Context, intervals []protocol.Range) ([]DailyRecord, error) {
+func (g HTTPGateway) DailyRecords(ctx context.Context, intervals []v2.Range) ([]DailyRecord, error) {
 	if g.client == nil || g.endpoint != gatewayURL || strings.TrimSpace(g.apiKey) == "" {
 		return nil, newSourceFailure(sourceFailureRequest)
 	}
@@ -220,7 +226,7 @@ func (g HTTPGateway) DailyRecords(ctx context.Context, intervals []protocol.Rang
 			}
 		}
 		// A reconciled source total proves that an omitted past bucket is zero.
-		records = append(records, DailyRecord{Date: key, Seconds: strconv.FormatUint(seconds, 10)})
+		records = append(records, DailyRecord{Date: key, Seconds: seconds})
 	}
 	return records, nil
 }
@@ -359,7 +365,7 @@ func parseDailyReadTimes(raw map[string]json.RawMessage, rawTotal json.RawMessag
 	return dailyReadTimes{Daily: daily, ZeroFillAllowed: sum == total}, nil
 }
 
-func requestedDates(intervals []protocol.Range) ([]time.Time, error) {
+func requestedDates(intervals []v2.Range) ([]time.Time, error) {
 	requested := map[string]time.Time{}
 	for _, interval := range intervals {
 		start, err := time.ParseInLocation("2006-01-02", interval.StartDate, weReadLocation)
@@ -398,7 +404,7 @@ func sourceDate(value string) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02", value, weReadLocation)
 }
 
-func sourcePeriod(interval protocol.Range) (string, int64, error) {
+func sourcePeriod(interval v2.Range) (string, int64, error) {
 	if interval.Period == nil {
 		return "", 0, errors.New("missing source period")
 	}
@@ -443,42 +449,42 @@ type sourceCategory struct {
 	ReadingTime json.RawMessage `json:"readingTime"`
 }
 
-func parseBookRanking(raw json.RawMessage) ([]RankedRecord, error) {
+func parseBookRanking(raw json.RawMessage) ([]ReadingRanking, error) {
 	var values []sourceBook
 	if len(raw) == 0 || string(raw) == "null" {
-		return []RankedRecord{}, nil
+		return []ReadingRanking{}, nil
 	}
 	if err := json.Unmarshal(raw, &values); err != nil {
 		return nil, errors.New("source response is invalid")
 	}
-	records := make([]RankedRecord, 0, len(values))
+	records := make([]ReadingRanking, 0, len(values))
 	for _, value := range values {
 		id, err := sourceID(value.Book.ID)
 		seconds, secondsErr := parseSeconds(value.ReadTime)
 		if err != nil || secondsErr != nil || value.Book.Title == "" {
 			return nil, errors.New("source response is invalid")
 		}
-		records = append(records, RankedRecord{"book:" + id, value.Book.Title, strconv.FormatUint(seconds, 10)})
+		records = append(records, ReadingRanking{ID: "book:" + id, Label: value.Book.Title, Seconds: seconds})
 	}
 	return records, nil
 }
 
-func parseCategoryRanking(raw json.RawMessage) ([]RankedRecord, error) {
+func parseCategoryRanking(raw json.RawMessage) ([]ReadingRanking, error) {
 	var values []sourceCategory
 	if len(raw) == 0 || string(raw) == "null" {
-		return []RankedRecord{}, nil
+		return []ReadingRanking{}, nil
 	}
 	if err := json.Unmarshal(raw, &values); err != nil {
 		return nil, errors.New("source response is invalid")
 	}
-	records := make([]RankedRecord, 0, len(values))
+	records := make([]ReadingRanking, 0, len(values))
 	for _, value := range values {
 		id, err := sourceID(value.ID)
 		seconds, secondsErr := parseSeconds(value.ReadingTime)
 		if err != nil || secondsErr != nil || value.Title == "" {
 			return nil, errors.New("source response is invalid")
 		}
-		records = append(records, RankedRecord{"category:" + id, value.Title, strconv.FormatUint(seconds, 10)})
+		records = append(records, ReadingRanking{ID: "category:" + id, Label: value.Title, Seconds: seconds})
 	}
 	return records, nil
 }

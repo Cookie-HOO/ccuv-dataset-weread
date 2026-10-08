@@ -2,7 +2,10 @@
   "schema": "ccuv.dataset/v1",
   "protocol": "ccuv.custom/v2",
   "entrypoint": "bin/ccuv-dataset-weread",
-  "platform": {"os": "darwin", "arch": "arm64"},
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64"
+  },
   "probe": {
     "dataset_id": "weread",
     "descriptor": {
@@ -11,61 +14,196 @@
       "source_timezone": "Asia/Shanghai",
       "default_metric_id": "reading_time",
       "dataset": {
-        "title": {"en": "WeRead", "zh-CN": "微信读书"},
-        "description": {"en": "WeRead reading metrics", "zh-CN": "微信读书阅读指标"}
+        "title": {
+          "en": "WeRead",
+          "zh-CN": "微信读书"
+        },
+        "description": {
+          "en": "WeRead reading metrics",
+          "zh-CN": "微信读书阅读指标"
+        }
       },
-      "metrics": [{
-        "id": "reading_time",
-        "title": {"en": "Reading time", "zh-CN": "阅读时长"},
-        "description": {"en": "Daily reading time from your WeRead activity.", "zh-CN": "基于微信读书活动统计每日阅读时长。"},
-        "unit": {"id": "minute", "label": {"en": "minutes", "zh-CN": "分钟"}, "placement": "suffix", "decimal_places": 2},
-        "aggregation": "sum",
-        "summary": "comparisons",
-        "capabilities": {
-          "group_by": [
-            {"id": "book", "label": {"en": "Book", "zh-CN": "书籍"}},
-            {"id": "category", "label": {"en": "Category", "zh-CN": "分类"}}
-          ],
-          "filters": [],
-          "charts": {
-            "timeline": {"granularities": ["day"], "group_by": [], "filters": []},
-            "calendar": {"granularities": ["day"], "group_by": [], "filters": []},
-            "stack": {"granularities": ["day"], "group_by": [], "filters": []},
-            "ranking": {"granularities": ["day"], "group_by": ["book", "category"], "filters": [], "periods": ["1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"]}
+      "metrics": [
+        {
+          "id": "reading_time",
+          "title": {
+            "en": "Reading time",
+            "zh-CN": "阅读时长"
+          },
+          "description": {
+            "en": "Daily reading time from your WeRead activity.",
+            "zh-CN": "基于微信读书活动统计每日阅读时长。"
+          },
+          "unit": {
+            "id": "minute",
+            "label": {
+              "en": "minutes",
+              "zh-CN": "分钟"
+            },
+            "placement": "suffix",
+            "decimal_places": 2
+          },
+          "aggregation": "sum",
+          "summary": "comparisons",
+          "capabilities": {
+            "group_by": [
+              {
+                "id": "book",
+                "label": {
+                  "en": "Book",
+                  "zh-CN": "书籍"
+                }
+              },
+              {
+                "id": "category",
+                "label": {
+                  "en": "Category",
+                  "zh-CN": "分类"
+                }
+              }
+            ],
+            "filters": [],
+            "charts": {
+              "calendar": {
+                "granularities": [
+                  "day"
+                ],
+                "group_by": [],
+                "filters": []
+              },
+              "ranking": {
+                "granularities": [
+                  "day"
+                ],
+                "group_by": [
+                  "book",
+                  "category"
+                ],
+                "filters": [],
+                "periods": [
+                  "1d",
+                  "7d",
+                  "14d",
+                  "30d",
+                  "90d",
+                  "180d",
+                  "365d",
+                  "1w",
+                  "1mo",
+                  "1y"
+                ]
+              },
+              "stack": {
+                "granularities": [
+                  "day"
+                ],
+                "group_by": [],
+                "filters": []
+              },
+              "timeline": {
+                "granularities": [
+                  "day"
+                ],
+                "group_by": [],
+                "filters": []
+              }
+            }
+          },
+          "defaults": {
+            "calendar": {
+              "period": "14d",
+              "group_by": null,
+              "top": null
+            },
+            "ranking": {
+              "period": "1y",
+              "group_by": "book",
+              "top": 10
+            },
+            "stack": {
+              "period": "14d",
+              "group_by": null,
+              "top": null
+            },
+            "timeline": {
+              "period": "14d",
+              "group_by": null,
+              "top": null
+            }
           }
         },
-        "defaults": {
-          "timeline": {"period": "14d", "group_by": null, "top": null},
-          "calendar": {"period": "14d", "group_by": null, "top": null},
-          "stack": {"period": "14d", "group_by": null, "top": null},
-          "ranking": {"period": "1y", "group_by": "book", "top": 10}
-        }
-      }, {
-        "id": "total_notes",
-        "title": {"en": "Total notes", "zh-CN": "总笔记数"},
-        "description": {"en": "Current all-time notes: highlights, thoughts, and bookmarks.", "zh-CN": "当前全量笔记数：划线、想法和书签。"},
-        "unit": {"id": "note", "label": {"en": "notes", "zh-CN": "笔记"}, "placement": "suffix", "decimal_places": 0},
-        "aggregation": "sum",
-        "summary": "total",
-        "capabilities": {
-          "group_by": [{"id": "book", "label": {"en": "Book", "zh-CN": "书籍"}}],
-          "filters": [],
-          "charts": {
-            "ranking": {"granularities": ["day"], "group_by": ["book"], "filters": [], "periods": ["all"]}
+        {
+          "id": "total_notes",
+          "title": {
+            "en": "Total notes",
+            "zh-CN": "总笔记数"
+          },
+          "description": {
+            "en": "Current all-time notes: highlights, thoughts, and bookmarks.",
+            "zh-CN": "当前全量笔记数：划线、想法和书签。"
+          },
+          "unit": {
+            "id": "note",
+            "label": {
+              "en": "notes",
+              "zh-CN": "笔记"
+            },
+            "placement": "suffix",
+            "decimal_places": 0
+          },
+          "aggregation": "sum",
+          "summary": "total",
+          "capabilities": {
+            "group_by": [
+              {
+                "id": "book",
+                "label": {
+                  "en": "Book",
+                  "zh-CN": "书籍"
+                }
+              }
+            ],
+            "filters": [],
+            "charts": {
+              "ranking": {
+                "granularities": [
+                  "day"
+                ],
+                "group_by": [
+                  "book"
+                ],
+                "filters": [],
+                "periods": [
+                  "all"
+                ]
+              }
+            }
+          },
+          "defaults": {
+            "ranking": {
+              "period": "all",
+              "group_by": "book",
+              "top": 10
+            }
           }
-        },
-        "defaults": {
-          "ranking": {"period": "all", "group_by": "book", "top": 10}
         }
-      }],
-      "environment": [{
-        "name": "WEREAD_API_KEY",
-        "required": true,
-        "sensitive": true,
-        "label": {"en": "WeRead API key", "zh-CN": "微信读书 API 密钥"},
-        "how_to_get": {"en": "Export WEREAD_API_KEY in the shell that starts ccuv.", "zh-CN": "请在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"},
-        "help_url": "https://weread.qq.com/r/weread-skills"
-      }]
+      ],
+      "environment": [
+        {
+          "name": "WEREAD_API_KEY",
+          "required": true,
+          "sensitive": true,
+          "label": {
+            "en": "WeRead API key",
+            "zh-CN": "微信读书 API 密钥"
+          },
+          "how_to_get": {
+            "en": "Export WEREAD_API_KEY in the shell that starts ccuv.",
+            "zh-CN": "请在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"
+          },
+          "help_url": "https://weread.qq.com/r/weread-skills"
+        }
+      ]
     }
   }
 }
