@@ -80,6 +80,16 @@ func TestHandleV2ProbeDefaultsToReadingTimeWithoutMonitor(t *testing.T) {
 	if body.Descriptor.Metrics[0].ID != "reading_time" || body.Descriptor.Metrics[1].ID != "total_notes" || charts["monitor"] != nil || body.Descriptor.Metrics[1].Capabilities.Charts["monitor"] != nil {
 		t.Fatalf("unexpected metric capability: %s", encoded)
 	}
+	var notesRanking struct {
+		GroupBy []string `json:"group_by"`
+		Periods []string `json:"periods"`
+	}
+	if err := json.Unmarshal(body.Descriptor.Metrics[1].Capabilities.Charts["ranking"], &notesRanking); err != nil {
+		t.Fatal(err)
+	}
+	if len(notesRanking.GroupBy) != 1 || notesRanking.GroupBy[0] != "book" || len(notesRanking.Periods) != 1 || notesRanking.Periods[0] != "all" {
+		t.Fatalf("total_notes ranking capability = %#v", notesRanking)
+	}
 }
 
 func TestHandleV2TotalNotesSupportsOnlyAllBookRanking(t *testing.T) {

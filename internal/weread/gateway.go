@@ -145,7 +145,7 @@ func (g HTTPGateway) NotebookRanking(ctx context.Context) ([]RankedRecord, error
 				Sort          int64  `json:"sort"`
 			} `json:"books"`
 		}
-		if err := json.Unmarshal(payload, &response); err != nil || response.ErrCode == nil || *response.ErrCode != 0 || (len(response.UpgradeInfo) > 0 && string(response.UpgradeInfo) != "null") {
+		if err := json.Unmarshal(payload, &response); err != nil || (response.ErrCode != nil && *response.ErrCode != 0) || (len(response.UpgradeInfo) > 0 && string(response.UpgradeInfo) != "null") {
 			return nil, newSourceFailure(sourceFailureResponse)
 		}
 		for _, book := range response.Books {
