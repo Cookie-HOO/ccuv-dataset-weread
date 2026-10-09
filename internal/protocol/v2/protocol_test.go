@@ -9,6 +9,13 @@ func TestDecodeAcceptsForwardCompatibleV2Chart(t *testing.T) {
 	}
 }
 
+func TestDecodePreservesOptionalChartTop(t *testing.T) {
+	request, err := Decode([]byte(`{"protocol":"ccuv.custom/v2","request_id":"pane-1:2","request_kind":"chart","dataset_id":"weread","metric_id":"reading_time","timezone":"Asia/Shanghai","range":{"start_date":"2026-09-01","end_date":"2026-09-30","period":"1mo"},"query":{"filters":{},"group_by":"book","granularity":"day","top":20}}`))
+	if err != nil || request.Chart == nil || request.Chart.Query.Top == nil || *request.Chart.Query.Top != 20 {
+		t.Fatalf("request = %#v, err = %v", request, err)
+	}
+}
+
 func TestDecodeRejectsV1AndRecoversTrustedV2Envelope(t *testing.T) {
 	if _, err := Decode([]byte(`{"protocol":"ccuv.custom/v1"}`)); err == nil {
 		t.Fatal("accepted V1")

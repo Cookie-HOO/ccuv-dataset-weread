@@ -27,6 +27,13 @@ func TestGroupedChartRejectsUnsupportedPeriodBeforeGateway(t *testing.T) {
 	}
 }
 
+func TestDescriptorDeclaresTheBookRankingSourceLimit(t *testing.T) {
+	limit := Descriptor().Capabilities.Charts["ranking"].MaxItems
+	if limit == nil || *limit != 10 {
+		t.Fatalf("ranking max_items = %#v, want 10", limit)
+	}
+}
+
 type panicSource struct{}
 
 func (panicSource) DailyRecords(context.Context, []v2.Range) ([]weread.DailyRecord, error) {

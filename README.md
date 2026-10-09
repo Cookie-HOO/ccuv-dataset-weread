@@ -10,7 +10,7 @@ ccuv-dataset-weread ccuv
 
 This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.0.1` release is available for local ccuv Dataset registration and GitHub repository installation; it is not yet an official catalog entry.
 
-`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative.
+`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
 
 The intended first artifact targets `darwin/arm64` and contains exactly:
 
@@ -41,7 +41,7 @@ daily history would not be truthful.
 
 WeRead does not expose complete per-entity daily attribution. Grouped results are therefore **Ranking-only** official natural-period summaries: each returned entity has one point at the requested `end_date`; that coordinate is not a claim of daily attribution. Timeline, Stack, and Calendar remain Total-only for these groupings.
 
-- **Book** uses the source's `readLongest` official top-content collection. It is source-capped (currently up to ten entries), so it is not a complete book history or a reconciliation with Total.
+- **Book** uses the source's `readLongest` official top-content collection. It is source-capped at ten entries and declares `max_items: 10`, so it is not a complete book history or a reconciliation with Total. A `query.top` value above ten remains a valid ccuv display preference, but cannot add unavailable source rows.
 - **Category** uses `preferCategory`, an official preference/duration summary (currently source-capped, typically up to eight entries), not an exhaustive category ranking.
 - **Author** is not advertised because the source's thresholded `preferAuthor` preference summary exposes formatted duration text rather than verified numeric seconds. Any grouping outside the declared Book and Category allowlist returns `unsupported_query` with `unsupported: {"field": "query.group_by", "value": "<selected grouping>"}` before the gateway is contacted. The localized message names the supported groupings without prescribing a host control. ccuv preserves an already accepted chart for this non-period rejection; the adapter never estimates or parses a display string as duration.
 

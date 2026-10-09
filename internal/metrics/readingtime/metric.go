@@ -31,13 +31,19 @@ func Descriptor() v2.MetricDescriptor {
 		Unit: v2.Unit{ID: "minute", Label: text("minutes", "分钟"), Placement: "suffix", DecimalPlaces: 2}, Aggregation: "sum", Summary: "comparisons",
 		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "category", Label: text("Category", "分类")}}, Filters: []any{}, Charts: map[string]v2.ChartCapability{
 			"timeline": chart([]string{}, nil), "calendar": chart([]string{}, nil), "stack": chart([]string{}, nil),
-			"ranking": chart([]string{"book", "category"}, []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"}),
+			"ranking": {
+				Granularities: []string{"day"}, GroupBy: []string{"book", "category"}, Filters: []string{},
+				Periods:  []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"},
+				MaxItems: ptr(10),
+			},
 		}},
 		Defaults: map[string]v2.ChartDefaults{
 			"timeline": {Period: "14d", GroupBy: nil, Top: nil}, "calendar": {Period: "14d", GroupBy: nil, Top: nil}, "stack": {Period: "14d", GroupBy: nil, Top: nil}, "ranking": {Period: "1y", GroupBy: "book", Top: 10},
 		},
 	}
 }
+
+func ptr(value int) *int { return &value }
 
 func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 	chart := *request.Chart

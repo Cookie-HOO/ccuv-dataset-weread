@@ -24,6 +24,7 @@ type Query struct {
 	Filters     map[string][]string `json:"filters"`
 	GroupBy     *string             `json:"group_by"`
 	Granularity string              `json:"granularity"`
+	Top         *int                `json:"top"`
 }
 
 type Summary struct {
@@ -91,6 +92,7 @@ type ChartCapability struct {
 	GroupBy       []string `json:"group_by"`
 	Filters       []string `json:"filters"`
 	Periods       []string `json:"periods,omitempty"`
+	MaxItems      *int     `json:"max_items,omitempty"`
 }
 
 type MetricCapabilities struct {
@@ -260,6 +262,9 @@ func validateChart(request Request, chart ChartRequest) error {
 	end, endErr := time.Parse("2006-01-02", chart.Range.EndDate)
 	if err != nil || endErr != nil || end.Before(start) {
 		return fmt.Errorf("invalid chart range")
+	}
+	if chart.Query.Top != nil && *chart.Query.Top < 1 {
+		return fmt.Errorf("invalid chart top")
 	}
 	return nil
 }
