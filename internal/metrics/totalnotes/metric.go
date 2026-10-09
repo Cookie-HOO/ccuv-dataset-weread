@@ -24,7 +24,7 @@ func Descriptor() v2.MetricDescriptor {
 	return v2.MetricDescriptor{
 		ID: ID, Title: text("Total notes", "总笔记数"), Description: text("Current all-time notes: highlights, thoughts, and bookmarks.", "当前全量笔记数：划线、想法和书签。"),
 		Unit: v2.Unit{ID: "note", Label: text("notes", "笔记"), Placement: "suffix", DecimalPlaces: 0}, Aggregation: "sum", Summary: "total",
-		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}}, Filters: []any{}, Charts: map[string]v2.ChartCapability{"ranking": {Granularities: []string{"day"}, GroupBy: []string{"book"}, Filters: []string{}, Periods: []string{"all"}}}},
+		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}}, Charts: map[string]v2.ChartCapability{"ranking": {Granularities: []string{"day"}, GroupBy: []string{"book"}, Periods: []string{"all"}}}},
 		Defaults:     map[string]v2.ChartDefaults{"ranking": {Period: "all", GroupBy: "book", Top: 10}},
 	}
 }
@@ -45,7 +45,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 		}
 		series = append(series, v2.Series{ID: "book:" + count.BookID, Label: v2.LocalizedText{EN: count.Label, ZhCN: count.Label}, Points: []v2.Point{{Date: chart.Range.EndDate, Value: fmt.Sprintf("%d", count.Count)}}})
 	}
-	return v2.OK(request, map[string]any{"dataset": metadata(), "capabilities": Descriptor().Capabilities, "data": map[string]any{"series": series}})
+	return v2.OK(request, map[string]any{"data": map[string]any{"series": series}})
 }
 
 func (h Handler) Summary(ctx context.Context, request v2.Request) v2.Response {
@@ -102,9 +102,6 @@ func ValidateSummary(request v2.Request) *v2.Response {
 	return nil
 }
 
-func metadata() map[string]any {
-	return map[string]any{"title": v2.LocalizedText{EN: "WeRead", ZhCN: "微信读书"}, "description": v2.LocalizedText{EN: "All-time notes", ZhCN: "全量笔记"}, "unit": Descriptor().Unit}
-}
 func sourceUnavailable(request v2.Request, err error) v2.Response {
 	en, zh := "WeRead data is unavailable.", "微信读书数据暂不可用。"
 	if err != nil && err.Error() == "WEREAD_API_KEY is not configured" {

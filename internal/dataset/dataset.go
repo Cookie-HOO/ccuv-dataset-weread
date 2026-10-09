@@ -56,22 +56,32 @@ func (r Registry) Handle(ctx context.Context, request v2.Request) v2.Response {
 	if err != nil {
 		return sourceUnavailable(request, err)
 	}
+	var response v2.Response
 	switch request.MetricID {
 	case readingtime.ID:
 		handler := readingtime.New(gateway)
 		if request.RequestKind == "chart" {
-			return handler.Chart(ctx, request)
+			response = handler.Chart(ctx, request)
+			break
 		}
 		return handler.Summary(ctx, request)
 	case totalnotes.ID:
 		handler := totalnotes.New(gateway)
 		if request.RequestKind == "chart" {
-			return handler.Chart(ctx, request)
+			response = handler.Chart(ctx, request)
+			break
 		}
 		return handler.Summary(ctx, request)
 	default:
 		panic("validated Metric ID was not routed")
 	}
+	if response.Status == "ok" {
+		response.Payload["descriptor"] = Descriptor()
+		response.Payload["runtime"] = map[string]any{"filters": []any{}}
+		delete(response.Payload, "dataset")
+		delete(response.Payload, "capabilities")
+	}
+	return response
 }
 
 func sourceUnavailable(request v2.Request, err error) v2.Response {

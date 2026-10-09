@@ -62,14 +62,12 @@
                 }
               }
             ],
-            "filters": [],
             "charts": {
               "calendar": {
                 "granularities": [
                   "day"
                 ],
-                "group_by": [],
-                "filters": []
+                "group_by": []
               },
               "ranking": {
                 "granularities": [
@@ -79,7 +77,6 @@
                   "book",
                   "category"
                 ],
-                "filters": [],
                 "periods": [
                   "1d",
                   "7d",
@@ -98,15 +95,13 @@
                 "granularities": [
                   "day"
                 ],
-                "group_by": [],
-                "filters": []
+                "group_by": []
               },
               "timeline": {
                 "granularities": [
                   "day"
                 ],
-                "group_by": [],
-                "filters": []
+                "group_by": []
               }
             }
           },
@@ -164,7 +159,6 @@
                 }
               }
             ],
-            "filters": [],
             "charts": {
               "ranking": {
                 "granularities": [
@@ -173,7 +167,6 @@
                 "group_by": [
                   "book"
                 ],
-                "filters": [],
                 "periods": [
                   "all"
                 ]

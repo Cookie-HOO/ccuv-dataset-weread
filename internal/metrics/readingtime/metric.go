@@ -24,15 +24,15 @@ func New(source Source) Handler { return Handler{source} }
 func Descriptor() v2.MetricDescriptor {
 	text := func(en, zh string) v2.LocalizedText { return v2.LocalizedText{EN: en, ZhCN: zh} }
 	chart := func(groupBy []string, periods []string) v2.ChartCapability {
-		return v2.ChartCapability{Granularities: []string{"day"}, GroupBy: groupBy, Filters: []string{}, Periods: periods}
+		return v2.ChartCapability{Granularities: []string{"day"}, GroupBy: groupBy, Periods: periods}
 	}
 	return v2.MetricDescriptor{
 		ID: ID, Title: text("Reading time", "阅读时长"), Description: text("Daily reading time from your WeRead activity.", "基于微信读书活动统计每日阅读时长。"),
 		Unit: v2.Unit{ID: "minute", Label: text("minutes", "分钟"), Placement: "suffix", DecimalPlaces: 2}, Aggregation: "sum", Summary: "comparisons",
-		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "category", Label: text("Category", "分类")}}, Filters: []any{}, Charts: map[string]v2.ChartCapability{
+		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "category", Label: text("Category", "分类")}}, Charts: map[string]v2.ChartCapability{
 			"timeline": chart([]string{}, nil), "calendar": chart([]string{}, nil), "stack": chart([]string{}, nil),
 			"ranking": {
-				Granularities: []string{"day"}, GroupBy: []string{"book", "category"}, Filters: []string{},
+				Granularities: []string{"day"}, GroupBy: []string{"book", "category"},
 				Periods:  []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"},
 				MaxItems: ptr(10),
 			},
@@ -62,7 +62,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 			}
 			series = append(series, v2.Series{ID: record.ID, Label: v2.LocalizedText{EN: record.Label, ZhCN: record.Label}, Points: []v2.Point{{Date: chart.Range.EndDate, Value: formatMinutes(record.Seconds)}}})
 		}
-		return v2.OK(request, map[string]any{"warnings": warnings(request), "dataset": datasetMetadata("Reading time", "阅读时长"), "capabilities": Descriptor().Capabilities, "data": map[string]any{"series": series}})
+		return v2.OK(request, map[string]any{"warnings": warnings(request), "data": map[string]any{"series": series}})
 	}
 	records, err := h.source.DailyRecords(ctx, []v2.Range{chart.Range})
 	if err != nil {
@@ -83,7 +83,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 		return v2.ErrorFor(request, "range_not_available", "The requested date range is not fully available.", "请求的日期范围数据不完整。", nil)
 	}
 	data := map[string]any{"series": []v2.Series{{ID: "total", Label: v2.LocalizedText{EN: "Total", ZhCN: "总计"}, Points: points}}}
-	return v2.OK(request, map[string]any{"warnings": warnings(request), "dataset": datasetMetadata("Daily reading time", "每日阅读时长"), "capabilities": Descriptor().Capabilities, "data": data})
+	return v2.OK(request, map[string]any{"warnings": warnings(request), "data": data})
 }
 
 func (h Handler) Summary(ctx context.Context, request v2.Request) v2.Response {
@@ -160,9 +160,6 @@ func ValidateSummary(request v2.Request) *v2.Response {
 	return nil
 }
 
-func datasetMetadata(en, zh string) map[string]any {
-	return map[string]any{"title": v2.LocalizedText{EN: "WeRead", ZhCN: "微信读书"}, "description": v2.LocalizedText{EN: en, ZhCN: zh}, "unit": Descriptor().Unit}
-}
 func unavailable(request v2.Request, en, zh string) v2.Response {
 	return v2.ErrorFor(request, "source_unavailable", en, zh, nil)
 }

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/ccusage-viz/ccuv-dataset-weread/internal/metrics/readingtime"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol/v2"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
 )
@@ -30,5 +31,22 @@ func TestUnsupportedMetricQueryDoesNotCreateGateway(t *testing.T) {
 	response := NewRegistry(func() (Gateway, error) { t.Fatal("gateway was created"); return weread.FakeGateway{}, nil }).Handle(context.Background(), request)
 	if response.Error == nil || response.Error.Code != "unsupported_query" {
 		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestSuccessfulChartAddsTheDescriptorAndRuntimeSnapshot(t *testing.T) {
+	request := v2.Request{RequestID: "request-3", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: readingtime.ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
+	response := NewRegistry(func() (Gateway, error) {
+		return weread.FakeGateway{Records: []weread.DailyRecord{{Date: "2026-09-17", Seconds: 60}}}, nil
+	}).Handle(context.Background(), request)
+	if response.Status != "ok" {
+		t.Fatalf("response = %#v", response)
+	}
+	if _, ok := response.Payload["descriptor"].(v2.ProbeDescriptor); !ok {
+		t.Fatalf("descriptor = %#v", response.Payload["descriptor"])
+	}
+	runtime, ok := response.Payload["runtime"].(map[string]any)
+	if !ok || len(runtime["filters"].([]any)) != 0 {
+		t.Fatalf("runtime = %#v", response.Payload["runtime"])
 	}
 }

@@ -90,14 +90,12 @@ type Dimension struct {
 type ChartCapability struct {
 	Granularities []string `json:"granularities"`
 	GroupBy       []string `json:"group_by"`
-	Filters       []string `json:"filters"`
 	Periods       []string `json:"periods,omitempty"`
 	MaxItems      *int     `json:"max_items,omitempty"`
 }
 
 type MetricCapabilities struct {
 	GroupBy []Dimension                `json:"group_by"`
-	Filters []any                      `json:"filters"`
 	Charts  map[string]ChartCapability `json:"charts"`
 }
 
