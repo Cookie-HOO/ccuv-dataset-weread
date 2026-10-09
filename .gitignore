@@ -5,4 +5,4 @@
 *.pem
 *private*
 dist/
-ccuv-dataset-weread
+/ccuv-dataset-weread
