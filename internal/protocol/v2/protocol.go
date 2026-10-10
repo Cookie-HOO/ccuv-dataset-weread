@@ -92,6 +92,7 @@ type ChartCapability struct {
 	GroupBy       []string `json:"group_by"`
 	Periods       []string `json:"periods,omitempty"`
 	MaxItems      *int     `json:"max_items,omitempty"`
+	Comparison    string   `json:"comparison,omitempty"`
 }
 
 type MetricCapabilities struct {
@@ -146,9 +147,13 @@ type Point struct {
 }
 
 type Series struct {
-	ID     string        `json:"id"`
-	Label  LocalizedText `json:"label"`
-	Points []Point       `json:"points"`
+	ID                string         `json:"id"`
+	Label             LocalizedText  `json:"label"`
+	Points            []Point        `json:"points"`
+	Description       *LocalizedText `json:"description,omitempty"`
+	Display           *LocalizedText `json:"display,omitempty"`
+	ComparisonDisplay *LocalizedText `json:"comparison_display,omitempty"`
+	Link              string         `json:"link,omitempty"`
 }
 
 type Unsupported struct {

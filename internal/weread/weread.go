@@ -13,15 +13,30 @@ type DailyRecord struct {
 }
 
 type ReadingRanking struct {
-	ID      string
-	Label   string
-	Seconds uint64
+	ID         string
+	Label      string
+	Seconds    uint64
+	Author     string
+	ReaderLink string
 }
 
 type NoteCount struct {
-	BookID string
-	Label  string
-	Count  uint64
+	BookID          string
+	Label           string
+	Highlights      uint64
+	ThoughtsReviews uint64
+	Bookmarks       uint64
+}
+
+func (count NoteCount) Total() (uint64, bool) {
+	if ^uint64(0)-count.Highlights < count.ThoughtsReviews {
+		return 0, false
+	}
+	total := count.Highlights + count.ThoughtsReviews
+	if ^uint64(0)-total < count.Bookmarks {
+		return 0, false
+	}
+	return total + count.Bookmarks, true
 }
 
 // Gateway is the shared source adapter. Metric packages narrow this interface

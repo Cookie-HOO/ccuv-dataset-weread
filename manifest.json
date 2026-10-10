@@ -89,7 +89,8 @@
                   "1mo",
                   "1y"
                 ],
-                "max_items": 10
+                "max_items": 10,
+                "comparison": "none"
               },
               "stack": {
                 "granularities": [
@@ -157,6 +158,13 @@
                   "en": "Book",
                   "zh-CN": "书籍"
                 }
+              },
+              {
+                "id": "note_type",
+                "label": {
+                  "en": "Note type",
+                  "zh-CN": "笔记类型"
+                }
               }
             ],
             "charts": {
@@ -165,7 +173,8 @@
                   "day"
                 ],
                 "group_by": [
-                  "book"
+                  "book",
+                  "note_type"
                 ],
                 "periods": [
                   "all"

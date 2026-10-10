@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -19,7 +20,7 @@ import (
 
 const (
 	gatewayURL         = "https://i.weread.qq.com/api/agent/gateway"
-	skillVersion       = "1.0.4"
+	skillVersion       = "1.0.5"
 	maxResponseBytes   = 1 << 20
 	maxNotebookPages   = 100
 	maxNotebookRecords = 10_000
@@ -166,7 +167,7 @@ func (g HTTPGateway) NotebookCounts(ctx context.Context) ([]NoteCount, error) {
 				return nil, newSourceFailure(sourceFailureResponse)
 			}
 			seen[id] = struct{}{}
-			records = append(records, NoteCount{BookID: id, Label: book.Book.Title, Count: book.ReviewCount + book.NoteCount + book.BookmarkCount})
+			records = append(records, NoteCount{BookID: id, Label: book.Book.Title, Highlights: book.NoteCount, ThoughtsReviews: book.ReviewCount, Bookmarks: book.BookmarkCount})
 		}
 		if response.HasMore == 0 {
 			return records, nil
@@ -437,8 +438,10 @@ func sourcePeriod(interval v2.Range) (string, int64, error) {
 
 type sourceBook struct {
 	Book struct {
-		ID    json.RawMessage `json:"bookId"`
-		Title string          `json:"title"`
+		ID         json.RawMessage `json:"bookId"`
+		Title      string          `json:"title"`
+		Author     string          `json:"author"`
+		ReaderLink string          `json:"readerLink"`
 	} `json:"book"`
 	ReadTime json.RawMessage `json:"readTime"`
 }
@@ -464,7 +467,7 @@ func parseBookRanking(raw json.RawMessage) ([]ReadingRanking, error) {
 		if err != nil || secondsErr != nil || value.Book.Title == "" {
 			return nil, errors.New("source response is invalid")
 		}
-		records = append(records, ReadingRanking{ID: "book:" + id, Label: value.Book.Title, Seconds: seconds})
+		records = append(records, ReadingRanking{ID: "book:" + id, Label: value.Book.Title, Seconds: seconds, Author: value.Book.Author, ReaderLink: validReaderLink(value.Book.ReaderLink)})
 	}
 	return records, nil
 }
@@ -487,6 +490,14 @@ func parseCategoryRanking(raw json.RawMessage) ([]ReadingRanking, error) {
 		records = append(records, ReadingRanking{ID: "category:" + id, Label: value.Title, Seconds: seconds})
 	}
 	return records, nil
+}
+
+func validReaderLink(value string) string {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return ""
+	}
+	return value
 }
 
 func sourceID(raw json.RawMessage) (string, error) {

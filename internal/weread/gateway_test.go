@@ -12,8 +12,8 @@ import (
 )
 
 func TestParseRankingsReturnTypedSeconds(t *testing.T) {
-	books, err := parseBookRanking(json.RawMessage(`[{"book":{"bookId":42,"title":"Book"},"readTime":120}]`))
-	if err != nil || len(books) != 1 || books[0] != (ReadingRanking{ID: "book:42", Label: "Book", Seconds: 120}) {
+	books, err := parseBookRanking(json.RawMessage(`[{"book":{"bookId":42,"title":"Book","author":"Author","readerLink":"https://weread.qq.com/web/reader/42"},"readTime":120}]`))
+	if err != nil || len(books) != 1 || books[0] != (ReadingRanking{ID: "book:42", Label: "Book", Seconds: 120, Author: "Author", ReaderLink: "https://weread.qq.com/web/reader/42"}) {
 		t.Fatalf("books = %#v, err = %v", books, err)
 	}
 	categories, err := parseCategoryRanking(json.RawMessage(`[{"categoryId":7,"categoryTitle":"History","readingTime":180}]`))
@@ -24,6 +24,9 @@ func TestParseRankingsReturnTypedSeconds(t *testing.T) {
 
 func TestDailyRecordsReturnTypedSeconds(t *testing.T) {
 	gateway := testGateway(t, func(body map[string]any) string {
+		if body["skill_version"] != "1.0.5" {
+			t.Fatalf("skill_version = %#v", body["skill_version"])
+		}
 		if body["mode"] == "annually" {
 			return `{"errcode":0,"totalReadTime":60,"dailyReadTimes":{"2026-09-17":60}}`
 		}
@@ -45,7 +48,7 @@ func TestNotebookCountsDeduplicatesBookIDs(t *testing.T) {
 		return `{"errcode":0,"hasMore":0,"books":[{"bookId":42,"book":{"title":"Book"},"reviewCount":1,"noteCount":2,"bookmarkCount":3,"sort":9}]}`
 	})
 	counts, err := gateway.NotebookCounts(context.Background())
-	if err != nil || len(counts) != 1 || counts[0].Count != 6 {
+	if err != nil || len(counts) != 1 || counts[0] != (NoteCount{BookID: "42", Label: "Book", ThoughtsReviews: 1, Highlights: 2, Bookmarks: 3}) {
 		t.Fatalf("counts = %#v, err = %v", counts, err)
 	}
 }

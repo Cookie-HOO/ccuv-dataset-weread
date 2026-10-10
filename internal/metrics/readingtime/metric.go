@@ -34,7 +34,7 @@ func Descriptor() v2.MetricDescriptor {
 			"ranking": {
 				Granularities: []string{"day"}, GroupBy: []string{"book", "category"},
 				Periods:  []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"},
-				MaxItems: ptr(10),
+				MaxItems: ptr(10), Comparison: "none",
 			},
 		}},
 		Defaults: map[string]v2.ChartDefaults{
@@ -60,7 +60,17 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 			if record.ID == "" || record.Label == "" {
 				return v2.ErrorFor(request, "internal_error", "The source returned invalid ranking data.", "数据源返回了无效的排行数据。", nil)
 			}
-			series = append(series, v2.Series{ID: record.ID, Label: v2.LocalizedText{EN: record.Label, ZhCN: record.Label}, Points: []v2.Point{{Date: chart.Range.EndDate, Value: formatMinutes(record.Seconds)}}})
+			item := v2.Series{ID: record.ID, Label: v2.LocalizedText{EN: record.Label, ZhCN: record.Label}, Points: []v2.Point{{Date: chart.Range.EndDate, Value: formatMinutes(record.Seconds)}}}
+			display := formatDisplay(record.Seconds)
+			item.Display = &display
+			if *chart.Query.GroupBy == "book" && record.Author != "" {
+				description := v2.LocalizedText{EN: record.Author, ZhCN: record.Author}
+				item.Description = &description
+			}
+			if *chart.Query.GroupBy == "book" {
+				item.Link = record.ReaderLink
+			}
+			series = append(series, item)
 		}
 		return v2.OK(request, map[string]any{"warnings": warnings(request), "data": map[string]any{"series": series}})
 	}
@@ -177,6 +187,15 @@ func formatMinutes(seconds uint64) string {
 		hundredths = 0
 	}
 	return fmt.Sprintf("%d.%02d", whole, hundredths)
+}
+
+func formatDisplay(seconds uint64) v2.LocalizedText {
+	minutes := seconds / 60
+	hours, remainder := minutes/60, minutes%60
+	if hours == 0 {
+		return v2.LocalizedText{EN: fmt.Sprintf("%dm", remainder), ZhCN: fmt.Sprintf("%d分钟", remainder)}
+	}
+	return v2.LocalizedText{EN: fmt.Sprintf("%dh %dm", hours, remainder), ZhCN: fmt.Sprintf("%d小时%d分钟", hours, remainder)}
 }
 func seriesForRange(interval v2.Range, known map[string]uint64) ([]v2.Point, bool) {
 	start, err := time.Parse("2006-01-02", interval.StartDate)
