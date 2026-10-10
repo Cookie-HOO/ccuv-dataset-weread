@@ -22,3 +22,8 @@ go run ./cmd/package \
   --executable "$binary" \
   --entrypoint "$entrypoint"
 go run ./cmd/archiveverify "$out"
+host_os=$(go env GOOS)
+host_arch=$(go env GOARCH)
+if [ "$target_os" = "$host_os" ] && [ "$target_arch" = "$host_arch" ]; then
+  go run ./cmd/archiveverify --probe "$out"
+fi
