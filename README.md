@@ -25,7 +25,7 @@ No README, interpreter, source tree, credential, or additional runtime file is a
 
 - Default Metric: additive daily reading time in minutes, with two decimal places.
 - Views: Timeline, Calendar, Stack, and Ranking support daily ungrouped Total reading time for arbitrary source-backed date ranges.
-- The adapter retains exact integer source seconds internally, then converts outward metric points to minutes rounded to two decimal places. Summary totals sum raw seconds before one final conversion and rounding.
+- The adapter retains exact integer source seconds internally, then converts outward values to minutes rounded to two decimal places. Ranking emits one scalar decimal-string `value` per item; Timeline, Calendar, and Stack retain dated points. Summary totals sum raw seconds before one final conversion and rounding.
 
 The adapter also exposes `total_notes`: the current all-time personal note count
 per book, calculated as `reviewCount + noteCount + bookmarkCount` from
@@ -39,7 +39,7 @@ daily history would not be truthful.
 
 ### Natural-period grouped summaries
 
-WeRead does not expose complete per-entity daily attribution. Grouped results are therefore **Ranking-only** official natural-period summaries: each returned entity has one point at the requested `end_date`; that coordinate is not a claim of daily attribution. Timeline, Stack, and Calendar remain Total-only for these groupings.
+WeRead does not expose complete per-entity daily attribution. Grouped results are therefore **Ranking-only** official natural-period summaries: each returned entity has one scalar value for the requested range, without a fabricated date coordinate. Timeline, Stack, and Calendar remain Total-only for these groupings.
 
 - **Book** uses the source's `readLongest` official top-content collection. It is source-capped at ten entries and declares `max_items: 10`, so it is not a complete book history or a reconciliation with Total. A `query.top` value above ten remains a valid ccuv display preference, but cannot add unavailable source rows.
 - **Category** uses `preferCategory`, an official preference/duration summary (currently source-capped, typically up to eight entries), not an exhaustive category ranking.

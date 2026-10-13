@@ -31,7 +31,7 @@ func TestProbeDoesNotCreateGateway(t *testing.T) {
 }
 
 func TestHandleRoutesTotalNotesChart(t *testing.T) {
-	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-v2","request_kind":"chart","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","range":{"start_date":"1971-01-01","end_date":"2026-10-08","period":"all"},"query":{"filters":{},"group_by":"book","granularity":"day"}}`)
+	input := []byte(`{"protocol":"ccuv.custom/v2","request_id":"notes-v2","request_kind":"chart","chart_kind":"ranking","dataset_id":"weread","metric_id":"total_notes","timezone":"Asia/Shanghai","range":{"start_date":"1971-01-01","end_date":"2026-10-08","period":"all"},"query":{"filters":{},"group_by":"book","granularity":"obsolete"}}`)
 	response, err := handle(input, func() (dataset.Gateway, error) {
 		return weread.FakeGateway{Notes: []weread.NoteCount{{BookID: "42", Label: "Book", Highlights: 9}}}, nil
 	})
@@ -39,8 +39,8 @@ func TestHandleRoutesTotalNotesChart(t *testing.T) {
 		t.Fatalf("response = %#v, err = %v", response, err)
 	}
 	encoded, _ := json.Marshal(response)
-	if string(encoded) == "" || !contains(encoded, []byte(`"value":"9"`)) {
-		t.Fatalf("response must retain decimal strings: %s", encoded)
+	if string(encoded) == "" || !contains(encoded, []byte(`"value":"9"`)) || contains(encoded, []byte(`"points"`)) {
+		t.Fatalf("Ranking must emit scalar decimal strings without points: %s", encoded)
 	}
 }
 

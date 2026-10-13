@@ -24,7 +24,7 @@ func Descriptor() v2.MetricDescriptor {
 	return v2.MetricDescriptor{
 		ID: ID, Title: text("Total notes", "总笔记数"), Description: text("Current all-time notes: highlights, thoughts, and bookmarks.", "当前全量笔记数：划线、想法和书签。"),
 		Unit: v2.Unit{ID: "note", Label: text("notes", "笔记"), Placement: "suffix", DecimalPlaces: 0}, Aggregation: "sum", Summary: "total",
-		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "note_type", Label: text("Note type", "笔记类型")}}, Charts: map[string]v2.ChartCapability{"ranking": {Granularities: []string{"day"}, GroupBy: []string{"book", "note_type"}, Periods: []string{"all"}}}},
+		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "note_type", Label: text("Note type", "笔记类型")}}, Charts: map[string]v2.ChartCapability{"ranking": {GroupBy: []string{"book", "note_type"}, Periods: []string{"all"}}}},
 
 		Defaults: map[string]v2.ChartDefaults{"ranking": {Period: "all", GroupBy: "book", Top: 10}},
 	}
@@ -39,7 +39,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 	if err != nil {
 		return sourceUnavailable(request, err)
 	}
-	series, ok := rankingSeries(counts, *chart.Query.GroupBy, chart.Range.EndDate)
+	series, ok := rankingSeries(counts, *chart.Query.GroupBy)
 	if !ok {
 		return v2.ErrorFor(request, "internal_error", "The source returned invalid note data.", "数据源返回了无效的笔记数据。", nil)
 	}
@@ -68,7 +68,7 @@ func (h Handler) Summary(ctx context.Context, request v2.Request) v2.Response {
 
 // ValidateChart rejects source-owned selections before a Gateway is created.
 func ValidateChart(request v2.Request, chart v2.ChartRequest) *v2.Response {
-	if len(chart.Query.Filters) != 0 || chart.Query.Granularity != "day" {
+	if request.ChartKind != "ranking" || len(chart.Query.Filters) != 0 {
 		response := v2.ErrorFor(request, "invalid_request", "The request is invalid.", "请求无效。", nil)
 		return &response
 	}
@@ -101,15 +101,15 @@ func ValidateSummary(request v2.Request) *v2.Response {
 	return nil
 }
 
-func rankingSeries(counts []weread.NoteCount, groupBy, day string) ([]v2.Series, bool) {
+func rankingSeries(counts []weread.NoteCount, groupBy string) ([]v2.RankingItem, bool) {
 	if groupBy == "book" {
-		series := make([]v2.Series, 0, len(counts))
+		series := make([]v2.RankingItem, 0, len(counts))
 		for _, count := range counts {
 			total, ok := count.Total()
 			if !ok || count.BookID == "" || count.Label == "" {
 				return nil, false
 			}
-			series = append(series, v2.Series{ID: "book:" + count.BookID, Label: v2.LocalizedText{EN: count.Label, ZhCN: count.Label}, Points: []v2.Point{{Date: day, Value: fmt.Sprintf("%d", total)}}})
+			series = append(series, v2.RankingItem{ID: "book:" + count.BookID, Label: v2.LocalizedText{EN: count.Label, ZhCN: count.Label}, Value: fmt.Sprintf("%d", total)})
 		}
 		return series, true
 	}
@@ -122,10 +122,10 @@ func rankingSeries(counts []weread.NoteCount, groupBy, day string) ([]v2.Series,
 		thoughtsReviews += count.ThoughtsReviews
 		bookmarks += count.Bookmarks
 	}
-	return []v2.Series{
-		{ID: "highlight", Label: v2.LocalizedText{EN: "Highlights", ZhCN: "划线"}, Points: []v2.Point{{Date: day, Value: fmt.Sprintf("%d", highlights)}}},
-		{ID: "thought-review", Label: v2.LocalizedText{EN: "Thoughts & reviews", ZhCN: "想法与点评"}, Points: []v2.Point{{Date: day, Value: fmt.Sprintf("%d", thoughtsReviews)}}},
-		{ID: "bookmark", Label: v2.LocalizedText{EN: "Bookmarks", ZhCN: "书签"}, Points: []v2.Point{{Date: day, Value: fmt.Sprintf("%d", bookmarks)}}},
+	return []v2.RankingItem{
+		{ID: "highlight", Label: v2.LocalizedText{EN: "Highlights", ZhCN: "划线"}, Value: fmt.Sprintf("%d", highlights)},
+		{ID: "thought-review", Label: v2.LocalizedText{EN: "Thoughts & reviews", ZhCN: "想法与点评"}, Value: fmt.Sprintf("%d", thoughtsReviews)},
+		{ID: "bookmark", Label: v2.LocalizedText{EN: "Bookmarks", ZhCN: "书签"}, Value: fmt.Sprintf("%d", bookmarks)},
 	}, true
 }
 

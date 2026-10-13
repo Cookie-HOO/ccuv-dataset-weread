@@ -9,7 +9,7 @@ import (
 )
 
 func TestChartFormatsRawSecondsAtWireBoundary(t *testing.T) {
-	request := v2.Request{RequestID: "chart-1", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
+	request := v2.Request{RequestID: "chart-1", RequestKind: "chart", ChartKind: "timeline", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
 	response := New(weread.FakeGateway{Records: []weread.DailyRecord{{Date: "2026-09-17", Seconds: 28}}}).Chart(context.Background(), request)
 	data := response.Payload["data"].(map[string]any)
 	series := data["series"].([]v2.Series)
@@ -18,9 +18,19 @@ func TestChartFormatsRawSecondsAtWireBoundary(t *testing.T) {
 	}
 }
 
+func TestTotalRankingAggregatesRangeIntoScalarValue(t *testing.T) {
+	period := "14d"
+	request := v2.Request{RequestID: "ranking-total", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-18", Period: &period}, Query: v2.Query{Filters: map[string][]string{}}}}
+	response := New(weread.FakeGateway{Records: []weread.DailyRecord{{Date: "2026-09-17", Seconds: 60}, {Date: "2026-09-18", Seconds: 120}}}).Chart(context.Background(), request)
+	series := response.Payload["data"].(map[string]any)["series"].([]v2.RankingItem)
+	if response.Status != "ok" || len(series) != 1 || series[0].Value != "3.00" {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
 func TestGroupedChartRejectsUnsupportedPeriodBeforeGateway(t *testing.T) {
 	period, groupBy := "14d", "book"
-	request := v2.Request{RequestID: "chart-2", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-30", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
+	request := v2.Request{RequestID: "chart-2", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-30", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
 	response := New(panicSource{}).Chart(context.Background(), request)
 	if response.Error == nil || response.Error.Code != "unsupported_query" || response.Error.Unsupported.Field != "range.period" {
 		t.Fatalf("response = %#v", response)
@@ -29,28 +39,37 @@ func TestGroupedChartRejectsUnsupportedPeriodBeforeGateway(t *testing.T) {
 
 func TestDescriptorDeclaresTheBookRankingSourceLimit(t *testing.T) {
 	capability := Descriptor().Capabilities.Charts["ranking"]
-	if capability.MaxItems == nil || *capability.MaxItems != 10 || capability.Comparison != "none" {
+	if len(capability.Granularities) != 0 || capability.MaxItems == nil || *capability.MaxItems != 10 || capability.Comparison != "none" {
 		t.Fatalf("ranking capability = %#v", capability)
 	}
 }
 
 func TestBookRankingAddsReadablePresentation(t *testing.T) {
 	period, groupBy := "1mo", "book"
-	request := v2.Request{RequestID: "ranking-1", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-10-01", EndDate: "2026-10-10", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
+	request := v2.Request{RequestID: "ranking-1", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-10-01", EndDate: "2026-10-10", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
 	response := New(weread.FakeGateway{RankingRecords: []weread.ReadingRanking{{ID: "book:42", Label: "Book", Seconds: 7440, Author: "Author", ReaderLink: "https://weread.qq.com/web/reader/42"}}}).Chart(context.Background(), request)
-	series := response.Payload["data"].(map[string]any)["series"].([]v2.Series)
+	series := response.Payload["data"].(map[string]any)["series"].([]v2.RankingItem)
 	item := series[0]
-	if response.Status != "ok" || item.Display == nil || item.Display.EN != "2h 4m" || item.Display.ZhCN != "2小时4分钟" || item.Description == nil || item.Description.EN != "Author" || item.Link != "https://weread.qq.com/web/reader/42" {
+	if response.Status != "ok" || item.Value != "124.00" || item.Display == nil || item.Display.EN != "2h 4m" || item.Display.ZhCN != "2小时4分钟" || item.Description == nil || item.Description.EN != "Author" || item.Link != "https://weread.qq.com/web/reader/42" {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestRankingIgnoresLegacyGranularity(t *testing.T) {
+	period, groupBy := "1mo", "book"
+	request := v2.Request{RequestID: "ranking-gran", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-10-01", EndDate: "2026-10-10", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "obsolete"}}}
+	response := New(weread.FakeGateway{RankingRecords: []weread.ReadingRanking{{ID: "book:1", Label: "Book", Seconds: 60}}}).Chart(context.Background(), request)
+	if response.Status != "ok" {
 		t.Fatalf("response = %#v", response)
 	}
 }
 
 func TestCategoryRankingOmitsBookPresentation(t *testing.T) {
 	period, groupBy := "1mo", "category"
-	request := v2.Request{RequestID: "ranking-2", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-10-01", EndDate: "2026-10-10", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
+	request := v2.Request{RequestID: "ranking-2", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-10-01", EndDate: "2026-10-10", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
 	response := New(weread.FakeGateway{RankingRecords: []weread.ReadingRanking{{ID: "category:7", Label: "History", Seconds: 59, Author: "Ignored", ReaderLink: "https://weread.qq.com/web/reader/42"}}}).Chart(context.Background(), request)
-	item := response.Payload["data"].(map[string]any)["series"].([]v2.Series)[0]
-	if item.Display == nil || item.Display.EN != "0m" || item.Description != nil || item.Link != "" {
+	item := response.Payload["data"].(map[string]any)["series"].([]v2.RankingItem)[0]
+	if item.Value != "0.98" || item.Display == nil || item.Display.EN != "0m" || item.Description != nil || item.Link != "" {
 		t.Fatalf("series = %#v", item)
 	}
 }

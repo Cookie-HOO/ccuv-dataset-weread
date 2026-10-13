@@ -18,7 +18,7 @@ func TestManifestUsesProbeDescriptorAndWindowsEntrypoint(t *testing.T) {
 }
 
 func TestUnknownMetricDoesNotCreateGateway(t *testing.T) {
-	request := v2.Request{RequestID: "request-1", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: "other_metric"}
+	request := v2.Request{RequestID: "request-1", RequestKind: "chart", ChartKind: "timeline", DatasetID: v2.DatasetID, MetricID: "other_metric"}
 	response := NewRegistry(func() (Gateway, error) { t.Fatal("gateway was created"); return weread.FakeGateway{}, nil }).Handle(context.Background(), request)
 	if response.Error == nil || response.Error.Code != "unsupported_chart_kind" {
 		t.Fatalf("response = %#v", response)
@@ -27,7 +27,7 @@ func TestUnknownMetricDoesNotCreateGateway(t *testing.T) {
 
 func TestUnsupportedMetricQueryDoesNotCreateGateway(t *testing.T) {
 	period, groupBy := "14d", "book"
-	request := v2.Request{RequestID: "request-2", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: "total_notes", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-01", EndDate: "2026-09-14", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
+	request := v2.Request{RequestID: "request-2", RequestKind: "chart", ChartKind: "ranking", DatasetID: v2.DatasetID, MetricID: "total_notes", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-01", EndDate: "2026-09-14", Period: &period}, Query: v2.Query{Filters: map[string][]string{}, GroupBy: &groupBy, Granularity: "day"}}}
 	response := NewRegistry(func() (Gateway, error) { t.Fatal("gateway was created"); return weread.FakeGateway{}, nil }).Handle(context.Background(), request)
 	if response.Error == nil || response.Error.Code != "unsupported_query" {
 		t.Fatalf("response = %#v", response)
@@ -35,7 +35,7 @@ func TestUnsupportedMetricQueryDoesNotCreateGateway(t *testing.T) {
 }
 
 func TestSuccessfulChartAddsTheDescriptorAndRuntimeSnapshot(t *testing.T) {
-	request := v2.Request{RequestID: "request-3", RequestKind: "chart", DatasetID: v2.DatasetID, MetricID: readingtime.ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
+	request := v2.Request{RequestID: "request-3", RequestKind: "chart", ChartKind: "timeline", DatasetID: v2.DatasetID, MetricID: readingtime.ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
 	response := NewRegistry(func() (Gateway, error) {
 		return weread.FakeGateway{Records: []weread.DailyRecord{{Date: "2026-09-17", Seconds: 60}}}, nil
 	}).Handle(context.Background(), request)

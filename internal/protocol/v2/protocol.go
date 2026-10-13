@@ -23,7 +23,7 @@ type Range struct {
 type Query struct {
 	Filters     map[string][]string `json:"filters"`
 	GroupBy     *string             `json:"group_by"`
-	Granularity string              `json:"granularity"`
+	Granularity string              `json:"granularity,omitempty"`
 	Top         *int                `json:"top"`
 }
 
@@ -46,6 +46,7 @@ type Request struct {
 	Protocol    string
 	RequestID   string
 	RequestKind string
+	ChartKind   string
 	DatasetID   string
 	MetricID    string
 	Timezone    string
@@ -57,6 +58,7 @@ type requestEnvelope struct {
 	Protocol    string          `json:"protocol"`
 	RequestID   string          `json:"request_id"`
 	RequestKind string          `json:"request_kind"`
+	ChartKind   string          `json:"chart_kind"`
 	DatasetID   string          `json:"dataset_id"`
 	MetricID    string          `json:"metric_id"`
 	Timezone    string          `json:"timezone"`
@@ -88,7 +90,7 @@ type Dimension struct {
 }
 
 type ChartCapability struct {
-	Granularities []string `json:"granularities"`
+	Granularities []string `json:"granularities,omitempty"`
 	GroupBy       []string `json:"group_by"`
 	Periods       []string `json:"periods,omitempty"`
 	MaxItems      *int     `json:"max_items,omitempty"`
@@ -156,6 +158,16 @@ type Series struct {
 	Link              string         `json:"link,omitempty"`
 }
 
+type RankingItem struct {
+	ID                string         `json:"id"`
+	Label             LocalizedText  `json:"label"`
+	Value             string         `json:"value"`
+	Description       *LocalizedText `json:"description,omitempty"`
+	Display           *LocalizedText `json:"display,omitempty"`
+	ComparisonDisplay *LocalizedText `json:"comparison_display,omitempty"`
+	Link              string         `json:"link,omitempty"`
+}
+
 type Unsupported struct {
 	Field string `json:"field"`
 	Value string `json:"value"`
@@ -202,13 +214,13 @@ func Decode(input []byte) (Request, error) {
 	if err := json.Unmarshal(input, &root); err != nil {
 		return Request{}, fmt.Errorf("request must contain exactly one JSON value")
 	}
-	request := Request{root.Protocol, root.RequestID, root.RequestKind, root.DatasetID, root.MetricID, root.Timezone, nil, nil}
+	request := Request{root.Protocol, root.RequestID, root.RequestKind, root.ChartKind, root.DatasetID, root.MetricID, root.Timezone, nil, nil}
 	if err := validateEnvelope(request); err != nil {
 		return Request{}, err
 	}
 	switch request.RequestKind {
 	case "probe":
-		if request.DatasetID != "" || request.MetricID != "" || request.Timezone != "" || len(root.Range) != 0 || len(root.Query) != 0 || len(root.Summary) != 0 {
+		if request.ChartKind != "" || request.DatasetID != "" || request.MetricID != "" || request.Timezone != "" || len(root.Range) != 0 || len(root.Query) != 0 || len(root.Summary) != 0 {
 			return Request{}, fmt.Errorf("probe must omit Dataset query fields")
 		}
 	case "chart":
@@ -258,8 +270,11 @@ func validateEnvelope(request Request) error {
 }
 
 func validateChart(request Request, chart ChartRequest) error {
-	if chart.Query.Filters == nil || chart.Query.Granularity == "" || chart.Range.StartDate == "" || chart.Range.EndDate == "" {
+	if chart.Query.Filters == nil || request.ChartKind == "" || chart.Range.StartDate == "" || chart.Range.EndDate == "" {
 		return fmt.Errorf("chart fields are required")
+	}
+	if request.ChartKind != "ranking" && chart.Query.Granularity == "" {
+		return fmt.Errorf("chart granularity is required")
 	}
 	start, err := time.Parse("2006-01-02", chart.Range.StartDate)
 	end, endErr := time.Parse("2006-01-02", chart.Range.EndDate)
@@ -287,7 +302,7 @@ func InvalidRequestFor(input []byte) (Response, bool) {
 	if json.Unmarshal(input, &envelope) != nil || envelope.Protocol != Version || !idPattern.MatchString(envelope.RequestID) || (envelope.RequestKind != "chart" && envelope.RequestKind != "summary") || envelope.DatasetID != DatasetID || !metricIDPattern.MatchString(envelope.MetricID) {
 		return Response{}, false
 	}
-	return ErrorFor(Request{RequestID: envelope.RequestID, RequestKind: envelope.RequestKind, DatasetID: DatasetID, MetricID: envelope.MetricID}, "invalid_request", "The request is invalid.", "请求无效。", nil), true
+	return ErrorFor(Request{RequestID: envelope.RequestID, RequestKind: envelope.RequestKind, ChartKind: envelope.ChartKind, DatasetID: DatasetID, MetricID: envelope.MetricID}, "invalid_request", "The request is invalid.", "请求无效。", nil), true
 }
 
 func ErrorFor(request Request, code, en, zh string, unsupported *Unsupported) Response {

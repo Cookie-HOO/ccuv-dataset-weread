@@ -70,9 +70,6 @@
                 "group_by": []
               },
               "ranking": {
-                "granularities": [
-                  "day"
-                ],
                 "group_by": [
                   "book",
                   "category"
@@ -169,9 +166,6 @@
             ],
             "charts": {
               "ranking": {
-                "granularities": [
-                  "day"
-                ],
                 "group_by": [
                   "book",
                   "note_type"

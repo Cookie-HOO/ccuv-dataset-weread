@@ -32,7 +32,7 @@ func Descriptor() v2.MetricDescriptor {
 		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "category", Label: text("Category", "分类")}}, Charts: map[string]v2.ChartCapability{
 			"timeline": chart([]string{}, nil), "calendar": chart([]string{}, nil), "stack": chart([]string{}, nil),
 			"ranking": {
-				Granularities: []string{"day"}, GroupBy: []string{"book", "category"},
+				GroupBy:  []string{"book", "category"},
 				Periods:  []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"},
 				MaxItems: ptr(10), Comparison: "none",
 			},
@@ -50,17 +50,17 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 	if response := ValidateChart(request, chart); response != nil {
 		return *response
 	}
-	if chart.Query.GroupBy != nil {
+	if request.ChartKind == "ranking" && chart.Query.GroupBy != nil {
 		records, err := h.source.PeriodRanking(ctx, chart.Range, *chart.Query.GroupBy)
 		if err != nil {
 			return unavailable(request, "WeRead could not complete the source request for this ranking.", "微信读书无法完成此排行的数据源请求。")
 		}
-		series := make([]v2.Series, 0, len(records))
+		series := make([]v2.RankingItem, 0, len(records))
 		for _, record := range records {
 			if record.ID == "" || record.Label == "" {
 				return v2.ErrorFor(request, "internal_error", "The source returned invalid ranking data.", "数据源返回了无效的排行数据。", nil)
 			}
-			item := v2.Series{ID: record.ID, Label: v2.LocalizedText{EN: record.Label, ZhCN: record.Label}, Points: []v2.Point{{Date: chart.Range.EndDate, Value: formatMinutes(record.Seconds)}}}
+			item := v2.RankingItem{ID: record.ID, Label: v2.LocalizedText{EN: record.Label, ZhCN: record.Label}, Value: formatMinutes(record.Seconds)}
 			display := formatDisplay(record.Seconds)
 			item.Display = &display
 			if *chart.Query.GroupBy == "book" && record.Author != "" {
@@ -87,6 +87,14 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 			return v2.ErrorFor(request, "internal_error", "The source returned invalid daily records.", "数据源返回了无效的每日记录。", nil)
 		}
 		known[record.Date] = record.Seconds
+	}
+	if request.ChartKind == "ranking" {
+		total, ok := sumRange(chart.Range, known)
+		if !ok {
+			return v2.ErrorFor(request, "range_not_available", "The requested date range is not fully available.", "请求的日期范围数据不完整。", nil)
+		}
+		data := map[string]any{"series": []v2.RankingItem{{ID: "total", Label: v2.LocalizedText{EN: "Total", ZhCN: "总计"}, Value: formatMinutes(total)}}}
+		return v2.OK(request, map[string]any{"warnings": warnings(request), "data": data})
 	}
 	points, ok := seriesForRange(chart.Range, known)
 	if !ok {
@@ -138,9 +146,20 @@ func (h Handler) Summary(ctx context.Context, request v2.Request) v2.Response {
 
 // ValidateChart rejects source-owned selections before a Gateway is created.
 func ValidateChart(request v2.Request, chart v2.ChartRequest) *v2.Response {
-	if chart.Query.Granularity != "day" || len(chart.Query.Filters) != 0 {
+	if len(chart.Query.Filters) != 0 || (request.ChartKind != "ranking" && chart.Query.Granularity != "day") {
 		response := v2.ErrorFor(request, "invalid_request", "The request is invalid.", "请求无效。", nil)
 		return &response
+	}
+	if request.ChartKind != "ranking" {
+		if request.ChartKind != "timeline" && request.ChartKind != "calendar" && request.ChartKind != "stack" {
+			response := v2.ErrorFor(request, "unsupported_chart_kind", "WeRead does not support the selected chart.", "微信读书不支持所选图表。", nil)
+			return &response
+		}
+		if chart.Query.GroupBy != nil {
+			response := v2.ErrorFor(request, "invalid_request", "The request is invalid.", "请求无效。", nil)
+			return &response
+		}
+		return nil
 	}
 	if chart.Query.GroupBy == nil {
 		return nil
