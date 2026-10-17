@@ -21,7 +21,7 @@ jobs:
           go-version-file: go.mod
       - name: Validate tagged source
         run: |
-          test "${GITHUB_REF_NAME#v}" = "$(jq -r .version manifest.json)"
+          test "${GITHUB_REF_NAME#v}" = "$(jq -r .probe.descriptor.version manifest.json)"
           test -z "$(gofmt -l $(find cmd internal -name '*.go' -type f))"
           mkdir -p dist
           go run ./cmd/manifest --os darwin --arch arm64 --out dist/generated-manifest.json
