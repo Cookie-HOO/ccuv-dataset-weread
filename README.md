@@ -8,7 +8,7 @@ ccuv-dataset-weread ccuv
 
 ## Current status
 
-This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.0.1` release is available for local ccuv Dataset registration and GitHub repository installation; it is not yet an official catalog entry.
+This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.0` release is available for local ccuv Dataset registration, GitHub repository installation, and installation through the official CCUV Dataset catalog.
 
 `request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
 
@@ -66,6 +66,6 @@ go run ./cmd/archiveverify dist/ccuv-dataset-weread-darwin-arm64.tar.gz
 
 Tests use only fake gateway records and do not contact a live account.
 
-## Release gate
+## Release verification
 
-Do not add this Dataset to the official catalog until a real gateway response contract has been validated without recording personal data, the network adapter has bounded/redacted failure handling, and the generated archive passes both this repository's verifier and ccuv's archive validator.
+Release archives are deterministic and must pass both this repository's verifier and ccuv's archive validator. The official CCUV Dataset catalog pins every published archive and embedded manifest by SHA-256.

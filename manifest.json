@@ -9,8 +9,8 @@
   "probe": {
     "dataset_id": "weread",
     "descriptor": {
-      "revision": "weread-2",
-      "version": "0.0.1",
+      "revision": "weread-3",
+      "version": "0.1.0",
       "source_timezone": "Asia/Shanghai",
       "default_metric_id": "reading_time",
       "dataset": {

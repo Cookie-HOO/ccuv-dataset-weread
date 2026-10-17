@@ -23,7 +23,7 @@ func NewRegistry(factory GatewayFactory) Registry { return Registry{factory} }
 func Descriptor() v2.ProbeDescriptor {
 	text := func(en, zh string) v2.LocalizedText { return v2.LocalizedText{EN: en, ZhCN: zh} }
 	return v2.ProbeDescriptor{
-		Revision: "weread-2", Version: "0.0.1", SourceTimezone: "Asia/Shanghai", DefaultMetricID: readingtime.ID,
+		Revision: "weread-3", Version: "0.1.0", SourceTimezone: "Asia/Shanghai", DefaultMetricID: readingtime.ID,
 		Dataset:     v2.Dataset{Title: text("WeRead", "微信读书"), Description: text("WeRead reading metrics", "微信读书阅读指标")},
 		Metrics:     []v2.MetricDescriptor{readingtime.Descriptor(), totalnotes.Descriptor()},
 		Environment: []v2.EnvironmentDeclaration{{Name: "WEREAD_API_KEY", Required: true, Sensitive: true, Label: text("WeRead API key", "微信读书 API 密钥"), HowToGet: text("Export WEREAD_API_KEY in the shell that starts ccuv.", "请在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"), HelpURL: "https://weread.qq.com/r/weread-skills"}},
