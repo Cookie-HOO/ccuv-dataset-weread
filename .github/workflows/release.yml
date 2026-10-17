@@ -23,6 +23,7 @@ jobs:
         run: |
           test "${GITHUB_REF_NAME#v}" = "$(jq -r .version manifest.json)"
           test -z "$(gofmt -l $(find cmd internal -name '*.go' -type f))"
+          mkdir -p dist
           go run ./cmd/manifest --os darwin --arch arm64 --out dist/generated-manifest.json
           cmp manifest.json dist/generated-manifest.json
           go test ./...
