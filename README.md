@@ -8,7 +8,7 @@ ccuv-dataset-weread ccuv
 
 ## Current status
 
-This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.0` release is available for local ccuv Dataset registration, GitHub repository installation, and installation through the official CCUV Dataset catalog.
+This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.1` release is available for local ccuv Dataset registration, GitHub repository installation, and installation through the official CCUV Dataset catalog.
 
 `request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
 

@@ -10,7 +10,7 @@
     "dataset_id": "weread",
     "descriptor": {
       "revision": "weread-3",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source_timezone": "Asia/Shanghai",
       "default_metric_id": "reading_time",
       "dataset": {
