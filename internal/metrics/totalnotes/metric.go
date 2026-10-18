@@ -130,9 +130,6 @@ func rankingSeries(counts []weread.NoteCount, groupBy string) ([]v2.RankingItem,
 }
 
 func sourceUnavailable(request v2.Request, err error) v2.Response {
-	en, zh := "WeRead data is unavailable.", "微信读书数据暂不可用。"
-	if err != nil && err.Error() == "WEREAD_API_KEY is not configured" {
-		en, zh = "WEREAD_API_KEY is not configured. Export it in the shell that starts ccuv.", "未配置 WEREAD_API_KEY。请在启动 ccuv 的 Shell 中导出该环境变量。"
-	}
+	en, zh := weread.SourceFailureMessage(err)
 	return v2.ErrorFor(request, "source_unavailable", en, zh, nil)
 }

@@ -3,10 +3,17 @@ package main
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/dataset"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
 )
+
+func TestExecutableEmbedsIANAZoneData(t *testing.T) {
+	if _, err := time.LoadLocation("Asia/Shanghai"); err != nil {
+		t.Fatalf("load embedded timezone: %v", err)
+	}
+}
 
 func TestProbeDoesNotCreateGateway(t *testing.T) {
 	response, err := handle([]byte(`{"protocol":"ccuv.custom/v2","request_id":"probe-v2","request_kind":"probe"}`), func() (dataset.Gateway, error) {

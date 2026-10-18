@@ -22,6 +22,48 @@ func TestParseRankingsReturnTypedSeconds(t *testing.T) {
 	}
 }
 
+func TestSourceFailureMessagesAreActionableAndCredentialSafe(t *testing.T) {
+	tests := []struct {
+		kind sourceFailureKind
+		want string
+	}{
+		{sourceFailureCredential, "WEREAD_API_KEY is not configured"},
+		{sourceFailureAuthentication, "Check that WEREAD_API_KEY is current"},
+		{sourceFailureNetwork, "network, proxy, and firewall"},
+		{sourceFailureHTTP, "HTTP service error"},
+		{sourceFailureUpgrade, "newer Skill version"},
+		{sourceFailureResponse, "unsupported or malformed response"},
+	}
+	for _, test := range tests {
+		en, zh := SourceFailureMessage(newSourceFailure(test.kind))
+		if !strings.Contains(en, test.want) || zh == "" || strings.Contains(en+zh, "test-key") {
+			t.Fatalf("kind %q: en=%q zh=%q", test.kind, en, zh)
+		}
+	}
+}
+
+func TestGatewayClassifiesAuthorizationAndServiceStatus(t *testing.T) {
+	for _, test := range []struct {
+		status int
+		kind   sourceFailureKind
+	}{
+		{http.StatusUnauthorized, sourceFailureAuthentication},
+		{http.StatusForbidden, sourceFailureAuthentication},
+		{http.StatusBadGateway, sourceFailureHTTP},
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.WriteHeader(test.status)
+		}))
+		gateway := HTTPGateway{client: server.Client(), apiKey: "test-key", endpoint: gatewayURL}
+		gateway.client.Transport = rewriteTransport{target: server.URL}
+		_, err := gateway.fetchGateway(context.Background(), map[string]any{"api_name": "/test"})
+		server.Close()
+		if sourceFailureKindOf(err) != test.kind {
+			t.Fatalf("status %d: error = %v", test.status, err)
+		}
+	}
+}
+
 func TestDailyRecordsReturnTypedSeconds(t *testing.T) {
 	gateway := testGateway(t, func(body map[string]any) string {
 		if body["skill_version"] != "1.0.5" {

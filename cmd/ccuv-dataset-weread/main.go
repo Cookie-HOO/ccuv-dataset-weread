@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	_ "time/tzdata"
 
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/dataset"
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/protocol/v2"

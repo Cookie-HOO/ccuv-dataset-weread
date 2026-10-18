@@ -53,7 +53,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 	if request.ChartKind == "ranking" && chart.Query.GroupBy != nil {
 		records, err := h.source.PeriodRanking(ctx, chart.Range, *chart.Query.GroupBy)
 		if err != nil {
-			return unavailable(request, "WeRead could not complete the source request for this ranking.", "微信读书无法完成此排行的数据源请求。")
+			return sourceUnavailable(request, err)
 		}
 		series := make([]v2.RankingItem, 0, len(records))
 		for _, record := range records {
@@ -76,7 +76,7 @@ func (h Handler) Chart(ctx context.Context, request v2.Request) v2.Response {
 	}
 	records, err := h.source.DailyRecords(ctx, []v2.Range{chart.Range})
 	if err != nil {
-		return unavailable(request, "WeRead data is unavailable.", "微信读书数据暂不可用。")
+		return sourceUnavailable(request, err)
 	}
 	known := make(map[string]uint64, len(records))
 	for _, record := range records {
@@ -115,7 +115,7 @@ func (h Handler) Summary(ctx context.Context, request v2.Request) v2.Response {
 	}
 	records, err := h.source.DailyRecords(ctx, ranges)
 	if err != nil {
-		return unavailable(request, "WeRead data is unavailable.", "微信读书数据暂不可用。")
+		return sourceUnavailable(request, err)
 	}
 	known := make(map[string]uint64, len(records))
 	for _, record := range records {
@@ -189,7 +189,8 @@ func ValidateSummary(request v2.Request) *v2.Response {
 	return nil
 }
 
-func unavailable(request v2.Request, en, zh string) v2.Response {
+func sourceUnavailable(request v2.Request, err error) v2.Response {
+	en, zh := weread.SourceFailureMessage(err)
 	return v2.ErrorFor(request, "source_unavailable", en, zh, nil)
 }
 func warnings(request v2.Request) []v2.Warning {

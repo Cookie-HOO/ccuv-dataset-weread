@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,11 +38,15 @@ var errRangeNotAvailable = errors.New("requested daily range is not available")
 type sourceFailureKind string
 
 const (
-	sourceFailurePeriod   sourceFailureKind = "period"
-	sourceFailureRequest  sourceFailureKind = "request"
-	sourceFailureUpgrade  sourceFailureKind = "upgrade"
-	sourceFailureResponse sourceFailureKind = "response"
-	sourceFailureRanking  sourceFailureKind = "ranking"
+	sourceFailureCredential     sourceFailureKind = "credential"
+	sourceFailureAuthentication sourceFailureKind = "authentication"
+	sourceFailureNetwork        sourceFailureKind = "network"
+	sourceFailureHTTP           sourceFailureKind = "http"
+	sourceFailurePeriod         sourceFailureKind = "period"
+	sourceFailureRequest        sourceFailureKind = "request"
+	sourceFailureUpgrade        sourceFailureKind = "upgrade"
+	sourceFailureResponse       sourceFailureKind = "response"
+	sourceFailureRanking        sourceFailureKind = "ranking"
 )
 
 type sourceFailure struct{ kind sourceFailureKind }
@@ -60,6 +63,31 @@ func sourceFailureKindOf(err error) sourceFailureKind {
 	return sourceFailureRequest
 }
 
+// SourceFailureMessage returns actionable diagnostics without exposing
+// credentials, authorization headers, response bodies, or private endpoints.
+func SourceFailureMessage(err error) (string, string) {
+	switch sourceFailureKindOf(err) {
+	case sourceFailureCredential:
+		return "WEREAD_API_KEY is not configured. Export it in the shell that starts ccuv.", "未配置 WEREAD_API_KEY。请在启动 ccuv 的 Shell 中导出该环境变量。"
+	case sourceFailureAuthentication:
+		return "The WeRead gateway rejected the request. Check that WEREAD_API_KEY is current and authorized for weread-skills.", "微信读书网关拒绝了请求。请检查 WEREAD_API_KEY 是否有效，并已获得 weread-skills 授权。"
+	case sourceFailureNetwork:
+		return "The WeRead gateway could not be reached. Check the network, proxy, and firewall, then retry.", "无法连接微信读书网关。请检查网络、代理和防火墙后重试。"
+	case sourceFailureHTTP:
+		return "The WeRead gateway returned an HTTP service error. Retry later.", "微信读书网关返回 HTTP 服务错误，请稍后重试。"
+	case sourceFailureUpgrade:
+		return "The WeRead gateway requires a newer Skill version. Update the WeRead Dataset.", "微信读书网关要求更新的 Skill 版本。请更新 WeRead Dataset。"
+	case sourceFailureResponse:
+		return "The WeRead gateway returned an unsupported or malformed response. Update the WeRead Dataset or retry later.", "微信读书网关返回了不支持或格式异常的响应。请更新 WeRead Dataset 或稍后重试。"
+	case sourceFailurePeriod:
+		return "The selected WeRead period cannot be converted to a source request.", "所选微信读书周期无法转换为数据源请求。"
+	case sourceFailureRanking:
+		return "The WeRead ranking response does not match the selected grouping.", "微信读书排行响应与所选分组不匹配。"
+	default:
+		return "The WeRead request could not be completed.", "微信读书请求无法完成。"
+	}
+}
+
 // HTTPGateway obtains exact daily records from WeRead detail responses. Annual
 // dailyReadTimes is preferred when available; monthly readTimes is the verified
 // fallback. It never derives a day's value from an aggregate total.
@@ -74,7 +102,7 @@ type HTTPGateway struct {
 func NewHTTPGatewayFromEnvironment() (HTTPGateway, error) {
 	apiKey, ok := os.LookupEnv("WEREAD_API_KEY")
 	if !ok || strings.TrimSpace(apiKey) == "" {
-		return HTTPGateway{}, fmt.Errorf("WEREAD_API_KEY is not configured")
+		return HTTPGateway{}, newSourceFailure(sourceFailureCredential)
 	}
 	return HTTPGateway{
 		client: &http.Client{
@@ -149,8 +177,14 @@ func (g HTTPGateway) NotebookCounts(ctx context.Context) ([]NoteCount, error) {
 				Sort          int64  `json:"sort"`
 			} `json:"books"`
 		}
-		if err := json.Unmarshal(payload, &response); err != nil || (response.ErrCode != nil && *response.ErrCode != 0) || (len(response.UpgradeInfo) > 0 && string(response.UpgradeInfo) != "null") {
+		if err := json.Unmarshal(payload, &response); err != nil {
 			return nil, newSourceFailure(sourceFailureResponse)
+		}
+		if len(response.UpgradeInfo) > 0 && string(response.UpgradeInfo) != "null" {
+			return nil, newSourceFailure(sourceFailureUpgrade)
+		}
+		if response.ErrCode != nil && *response.ErrCode != 0 {
+			return nil, newSourceFailure(sourceFailureAuthentication)
 		}
 		for _, book := range response.Books {
 			id, err := sourceID(book.BookID)
@@ -310,11 +344,14 @@ func (g HTTPGateway) fetchGateway(ctx context.Context, values map[string]any) ([
 	request.Header.Set("Accept", "application/json")
 	response, err := g.client.Do(request)
 	if err != nil {
-		return nil, newSourceFailure(sourceFailureRequest)
+		return nil, newSourceFailure(sourceFailureNetwork)
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return nil, newSourceFailure(sourceFailureAuthentication)
+	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return nil, newSourceFailure(sourceFailureRequest)
+		return nil, newSourceFailure(sourceFailureHTTP)
 	}
 	payload, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 	if err != nil || len(payload) > maxResponseBytes {
@@ -333,7 +370,7 @@ func parseDetailResponse(payload []byte) (detailResponse, error) {
 		return detailResponse{}, newSourceFailure(sourceFailureUpgrade)
 	}
 	if response.ErrCode != nil && *response.ErrCode != 0 {
-		return detailResponse{}, newSourceFailure(sourceFailureRequest)
+		return detailResponse{}, newSourceFailure(sourceFailureAuthentication)
 	}
 	return response, nil
 }

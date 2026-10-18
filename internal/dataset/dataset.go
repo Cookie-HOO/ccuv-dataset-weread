@@ -23,7 +23,7 @@ func NewRegistry(factory GatewayFactory) Registry { return Registry{factory} }
 func Descriptor() v2.ProbeDescriptor {
 	text := func(en, zh string) v2.LocalizedText { return v2.LocalizedText{EN: en, ZhCN: zh} }
 	return v2.ProbeDescriptor{
-		Revision: "weread-3", Version: "0.1.0", SourceTimezone: "Asia/Shanghai", DefaultMetricID: readingtime.ID,
+		Revision: "weread-3", Version: "0.1.1", SourceTimezone: "Asia/Shanghai", DefaultMetricID: readingtime.ID,
 		Dataset:     v2.Dataset{Title: text("WeRead", "微信读书"), Description: text("WeRead reading metrics", "微信读书阅读指标")},
 		Metrics:     []v2.MetricDescriptor{readingtime.Descriptor(), totalnotes.Descriptor()},
 		Environment: []v2.EnvironmentDeclaration{{Name: "WEREAD_API_KEY", Required: true, Sensitive: true, Label: text("WeRead API key", "微信读书 API 密钥"), HowToGet: text("Export WEREAD_API_KEY in the shell that starts ccuv.", "请在启动 ccuv 的 Shell 中导出 WEREAD_API_KEY。"), HelpURL: "https://weread.qq.com/r/weread-skills"}},
@@ -85,10 +85,7 @@ func (r Registry) Handle(ctx context.Context, request v2.Request) v2.Response {
 }
 
 func sourceUnavailable(request v2.Request, err error) v2.Response {
-	en, zh := "WeRead data is unavailable.", "微信读书数据暂不可用。"
-	if err != nil && err.Error() == "WEREAD_API_KEY is not configured" {
-		en, zh = "WEREAD_API_KEY is not configured. Export it in the shell that starts ccuv.", "未配置 WEREAD_API_KEY。请在启动 ccuv 的 Shell 中导出该环境变量。"
-	}
+	en, zh := weread.SourceFailureMessage(err)
 	return v2.ErrorFor(request, "source_unavailable", en, zh, nil)
 }
 
