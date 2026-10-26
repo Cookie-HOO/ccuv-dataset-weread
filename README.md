@@ -10,7 +10,7 @@ ccuv-dataset-weread ccuv
 
 This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.1` release is available for local ccuv Dataset registration, GitHub repository installation, and installation through the official CCUV Dataset catalog.
 
-`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
+`request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking defaults to `period: "1y"`, `group_by: "book"`, and `top: 10`; its capability declares exactly `1w`, `1mo`, and `1y`, so ccuv period controls never select a range that grouped WeRead summaries reject. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
 
 The intended first artifact targets `darwin/arm64` and contains exactly:
 
@@ -35,7 +35,7 @@ bookmarks have no date-attributed creation record in the available API, so a
 daily history would not be truthful.
 - WeRead source dates and source requests always use `Asia/Shanghai`. A valid request timezone other than `Asia/Shanghai` succeeds with a localized `timezone_not_supported` warning; it does not change source calendar interpretation.
 - The adapter uses annual `dailyReadTimes` when available and otherwise requests a month-specific `readTimes` map. An omitted date is treated as zero only when that response's authoritative `totalReadTime` exactly equals the sum of its returned daily map; otherwise it returns `range_not_available`. Current dates are decided by this true source-coverage rule, not a local clock cutoff.
-- Ranking declares the cycle `Total → Book → Category`. Grouped selections are Dataset-owned: they require the semantic `range.period` `1w`, `1mo`, or `1y` (week-to-date, month-to-date, or year-to-date). Other group/period combinations return `unsupported_query` with `unsupported: {"field": "range.period", "value": "<selected period>"}`. ccuv clears a previously accepted graph for this field, then the localized response names the supported periods; it never silently changes the selection or substitutes Total.
+- Ranking declares the cycle `Book → Category` and the ordered period capability `1w → 1mo → 1y` (week-to-date, month-to-date, or year-to-date). ccuv therefore limits `p/P` to those three periods. Invalid external requests still return `unsupported_query` with `unsupported: {"field": "range.period", "value": "<selected period>"}`.
 
 ### Natural-period grouped summaries
 
