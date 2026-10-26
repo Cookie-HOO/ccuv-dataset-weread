@@ -33,7 +33,7 @@ func Descriptor() v2.MetricDescriptor {
 			"timeline": chart([]string{}, nil), "calendar": chart([]string{}, nil), "stack": chart([]string{}, nil),
 			"ranking": {
 				GroupBy:  []string{"book", "category"},
-				Periods:  []string{"1d", "7d", "14d", "30d", "90d", "180d", "365d", "1w", "1mo", "1y"},
+				Periods:  []string{"1w", "1mo", "1y"},
 				MaxItems: ptr(10), Comparison: "none",
 			},
 		}},

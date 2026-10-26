@@ -39,8 +39,14 @@ func TestGroupedChartRejectsUnsupportedPeriodBeforeGateway(t *testing.T) {
 
 func TestDescriptorDeclaresTheBookRankingSourceLimit(t *testing.T) {
 	capability := Descriptor().Capabilities.Charts["ranking"]
-	if len(capability.Granularities) != 0 || capability.MaxItems == nil || *capability.MaxItems != 10 || capability.Comparison != "none" {
+	wantPeriods := []string{"1w", "1mo", "1y"}
+	if len(capability.Granularities) != 0 || capability.MaxItems == nil || *capability.MaxItems != 10 || capability.Comparison != "none" || len(capability.Periods) != len(wantPeriods) {
 		t.Fatalf("ranking capability = %#v", capability)
+	}
+	for index, want := range wantPeriods {
+		if capability.Periods[index] != want {
+			t.Fatalf("ranking periods = %#v", capability.Periods)
+		}
 	}
 }
 
