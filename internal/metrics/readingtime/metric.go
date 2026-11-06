@@ -28,7 +28,7 @@ func Descriptor() v2.MetricDescriptor {
 	}
 	return v2.MetricDescriptor{
 		ID: ID, Title: text("Reading time", "阅读时长"), Description: text("Daily reading time from your WeRead activity.", "基于微信读书活动统计每日阅读时长。"),
-		Unit: v2.Unit{ID: "minute", Label: text("minutes", "分钟"), Placement: "suffix", DecimalPlaces: 2}, Aggregation: "sum", Summary: "comparisons",
+		Unit: v2.Unit{ID: "minute", Label: text("minutes", "分钟"), Placement: "suffix", DecimalPlaces: 2}, Aggregation: "sum", SumFormat: "duration-minute", Summary: "comparisons",
 		Capabilities: v2.MetricCapabilities{GroupBy: []v2.Dimension{{ID: "book", Label: text("Book", "书籍")}, {ID: "category", Label: text("Category", "分类")}}, Charts: map[string]v2.ChartCapability{
 			"timeline": chart([]string{}, nil), "calendar": chart([]string{}, nil), "stack": chart([]string{}, nil),
 			"ranking": {

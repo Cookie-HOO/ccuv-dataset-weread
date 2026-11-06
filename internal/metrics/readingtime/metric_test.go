@@ -8,6 +8,13 @@ import (
 	"github.com/ccusage-viz/ccuv-dataset-weread/internal/weread"
 )
 
+func TestDescriptorDeclaresMinuteDurationSumFormat(t *testing.T) {
+	metric := Descriptor()
+	if metric.Aggregation != "sum" || metric.SumFormat != "duration-minute" {
+		t.Fatalf("aggregation = %q, sum format = %q", metric.Aggregation, metric.SumFormat)
+	}
+}
+
 func TestChartFormatsRawSecondsAtWireBoundary(t *testing.T) {
 	request := v2.Request{RequestID: "chart-1", RequestKind: "chart", ChartKind: "timeline", DatasetID: v2.DatasetID, MetricID: ID, Timezone: "Asia/Shanghai", Chart: &v2.ChartRequest{Range: v2.Range{StartDate: "2026-09-17", EndDate: "2026-09-17"}, Query: v2.Query{Filters: map[string][]string{}, Granularity: "day"}}}
 	response := New(weread.FakeGateway{Records: []weread.DailyRecord{{Date: "2026-09-17", Seconds: 28}}}).Chart(context.Background(), request)

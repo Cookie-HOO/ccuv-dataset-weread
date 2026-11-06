@@ -114,6 +114,7 @@ type MetricDescriptor struct {
 	Description  LocalizedText            `json:"description"`
 	Unit         Unit                     `json:"unit"`
 	Aggregation  string                   `json:"aggregation"`
+	SumFormat    string                   `json:"sum_format,omitempty"`
 	Summary      string                   `json:"summary"`
 	Capabilities MetricCapabilities       `json:"capabilities"`
 	Defaults     map[string]ChartDefaults `json:"defaults"`

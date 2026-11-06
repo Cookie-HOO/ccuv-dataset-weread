@@ -9,8 +9,8 @@
   "probe": {
     "dataset_id": "weread",
     "descriptor": {
-      "revision": "weread-4",
-      "version": "0.1.2",
+      "revision": "weread-5",
+      "version": "0.1.3",
       "source_timezone": "Asia/Shanghai",
       "default_metric_id": "reading_time",
       "dataset": {
@@ -44,6 +44,7 @@
             "decimal_places": 2
           },
           "aggregation": "sum",
+          "sum_format": "duration-minute",
           "summary": "comparisons",
           "capabilities": {
             "group_by": [
