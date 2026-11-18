@@ -19,7 +19,6 @@ import (
 
 const (
 	gatewayURL         = "https://i.weread.qq.com/api/agent/gateway"
-	skillVersion       = "1.0.5"
 	maxResponseBytes   = 1 << 20
 	maxNotebookPages   = 100
 	maxNotebookRecords = 10_000
@@ -154,7 +153,7 @@ func (g HTTPGateway) NotebookCounts(ctx context.Context) ([]NoteCount, error) {
 	seen := make(map[string]struct{})
 	var lastSort *int64
 	for page := 0; page < maxNotebookPages; page++ {
-		body := map[string]any{"api_name": "/user/notebooks", "count": 100, "skill_version": skillVersion}
+		body := map[string]any{"api_name": "/user/notebooks", "count": 100}
 		if lastSort != nil {
 			body["lastSort"] = *lastSort
 		}
@@ -325,7 +324,7 @@ func (g HTTPGateway) monthlyReadTimes(ctx context.Context, target month) (dailyR
 
 func (g HTTPGateway) fetchDetail(ctx context.Context, mode string, baseTime int64) ([]byte, error) {
 	return g.fetchGateway(ctx, map[string]any{
-		"api_name": "/readdata/detail", "mode": mode, "baseTime": baseTime, "skill_version": skillVersion,
+		"api_name": "/readdata/detail", "mode": mode, "baseTime": baseTime,
 	})
 
 }

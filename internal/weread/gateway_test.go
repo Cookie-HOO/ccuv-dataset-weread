@@ -66,8 +66,8 @@ func TestGatewayClassifiesAuthorizationAndServiceStatus(t *testing.T) {
 
 func TestDailyRecordsReturnTypedSeconds(t *testing.T) {
 	gateway := testGateway(t, func(body map[string]any) string {
-		if body["skill_version"] != "1.0.5" {
-			t.Fatalf("skill_version = %#v", body["skill_version"])
+		if _, present := body["skill_version"]; present {
+			t.Fatal("reading request must not couple to an Agent Skill version")
 		}
 		if body["mode"] == "annually" {
 			return `{"errcode":0,"totalReadTime":60,"dailyReadTimes":{"2026-09-17":60}}`
@@ -84,6 +84,9 @@ func TestNotebookCountsDeduplicatesBookIDs(t *testing.T) {
 	requests := 0
 	gateway := testGateway(t, func(body map[string]any) string {
 		requests++
+		if _, present := body["skill_version"]; present {
+			t.Fatal("notebook request must not couple to an Agent Skill version")
+		}
 		if requests == 1 {
 			return `{"errcode":0,"hasMore":1,"books":[{"bookId":42,"book":{"title":"Book"},"reviewCount":1,"noteCount":2,"bookmarkCount":3,"sort":10}]}`
 		}

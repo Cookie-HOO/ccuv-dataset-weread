@@ -8,7 +8,7 @@ ccuv-dataset-weread ccuv
 
 ## Current status
 
-This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.3` release is available for local ccuv Dataset registration, GitHub repository installation, and installation through the official CCUV Dataset catalog.
+This repository provides the protocol, bounded production gateway, deterministic package, and strict archive foundation. The gateway requests annual detail first and falls back to verified monthly detail when the annual response does not provide daily buckets. The `v0.1.4` release supports local ccuv Dataset registration and GitHub release installation. Availability through the official CCUV Dataset catalog depends on a separately signed catalog update.
 
 `request_kind: "probe"` returns the stable descriptor without constructing the HTTP gateway, reading business data, requiring `WEREAD_API_KEY`, or making a network request. Ranking declares `period: "1y"`, `group_by: "book"`, and `top: 10`; its grouped chart request rules remain authoritative. The Reading time Ranking capability also declares `max_items: 10`, the source-owned maximum raw ranking coverage available through WeRead's summary endpoint.
 
@@ -51,7 +51,7 @@ The adapter does not offer account or free-form filtering. Tests use synthetic o
 
 ## Credentials and privacy
 
-The release manifest declares `WEREAD_API_KEY` as required and sensitive. The gateway reads it only through `os.LookupEnv` and sends it only in an HTTPS Bearer authorization header. It never accepts it as a command argument, writes it to disk, includes it in diagnostics, or emits raw source responses.
+The release manifest declares `WEREAD_API_KEY` as required and sensitive. The gateway reads it only through `os.LookupEnv` and sends it only in an HTTPS Bearer authorization header. Dataset business requests omit `skill_version`: this standalone client is not an installed Agent Skill. Both notebook and reading-detail endpoints accepted versionless requests in a bounded live check on 2026-11-18; this is observed gateway behavior, not a guarantee that future gateways will never require a version. Authentication, response validation, and explicit upgrade errors remain enforced. It never accepts it as a command argument, writes it to disk, includes it in diagnostics, or emits raw source responses.
 
 ## Development
 
